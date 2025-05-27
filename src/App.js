@@ -1533,9 +1533,6 @@ function App() {
   };
   return (
     <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
-      <style jsx global>{`
-        body { font-family: 'Inter', sans-serif; background-color: ${C3_LIGHT_BG}; }
-      `}</style>
       {(hasCompletedOnboarding && screen !== 'Onboarding') && <Header />}
       <main className="container mx-auto px-2 py-4 md:px-4 md:py-8">{renderScreen()}</main>
       <ToastNotification />
