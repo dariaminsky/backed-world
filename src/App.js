@@ -1,8 +1,8 @@
-import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, Gift, Users, TrendingUp, DollarSign, Rocket, Search, ChevronLeft, PlusCircle, Trash2, Brain, Sparkles, Award, FileText, Send, ImageIcon, User, Wand2, RefreshCw, Camera, Shield, Globe, Heart, MessageCircle, ThumbsUp, UserCheck, Zap, ShieldCheck } from 'lucide-react';
-import { IDKitWidget, VerificationLevel } from '@worldcoin/idkit';
+import React, { useState, createContext, useContext, useEffect, useCallback, useMemo } from 'react';
+import { Share2, Copy, CheckCircle, XCircle, Gift, Users, TrendingUp, Lightbulb, DollarSign, ExternalLink, Info, Check, Globe, Rocket, PartyPopper, Search, Eye, Edit3, ChevronLeft, PlusCircle, Trash2, Send, Brain, Sparkles, RefreshCw, Zap, Edit, Image as ImageIcon, UserCircle, Palette, UploadCloud } from 'lucide-react';
 
-// Backed App: Style constants
+// Style constants
+const C3_PRIMARY_BLACK = '#000000';
 const C3_LIGHT_BG = '#F9FAFB'; 
 const C3_CARD_BG_LIGHT = '#FFFFFF';
 const C3_TEXT_PRIMARY_LIGHT = '#111827'; 
@@ -22,10 +22,9 @@ const LOCALSTORAGE_SUPPORTED_KEY = 'backedSupportedPages';
 const LOCALSTORAGE_CREATOR_VERIFIED_KEY = 'backedCreatorVerified'; 
 const LOCALSTORAGE_BUDGET_ITEMS_KEY = 'backedBudgetItems';
 const LOCALSTORAGE_AI_BUDGET_GENERATED_KEY = 'backedAIBudgetGenerated';
-const LOCALSTORAGE_GRANTS_KEY = 'backedGrants';
-const LOCALSTORAGE_WORLD_ID_KEY = 'backedWorldId';
-const LOCALSTORAGE_COMMENTS_KEY = 'backedComments';
-const LOCALSTORAGE_LIKES_KEY = 'backedLikes';
+// FIX: Re-affirming definition of the constant that caused the ReferenceError
+const LOCALSTORAGE_ONBOARDING_COMPLETE_KEY = 'backedOnboardingComplete';
+
 
 // --- App Context for State Management ---
 const AppContext = createContext();
@@ -44,18 +43,10 @@ const throttle = (func, delay) => {
   };
 };
 
+
 const AppProvider = ({ children }) => {
-  const [screen, setScreen] = useState('WorldLanding');
+  const [screen, setScreen] = useState(''); 
   const [activeSupportPageId, setActiveSupportPageId] = useState(null); 
-  
-  // World ID Verification State
-  const [worldIdVerified, setWorldIdVerified] = useState(() => {
-    try {
-      const stored = localStorage.getItem(LOCALSTORAGE_WORLD_ID_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) { console.error("Error loading World ID:", error); return null; }
-  });
-  
   const [isCreatorVerified, setIsCreatorVerified] = useState(() => {
     try {
       const storedVerified = localStorage.getItem(LOCALSTORAGE_CREATOR_VERIFIED_KEY);
@@ -75,2247 +66,1481 @@ const AppProvider = ({ children }) => {
       return storedSupported ? new Set(JSON.parse(storedSupported)) : new Set();
     } catch (error) { console.error("Error loading supported pages:", error); return new Set(); }
   });
-  
+
   const [budgetItems, setBudgetItems] = useState(() => {
     try {
       const storedBudget = localStorage.getItem(LOCALSTORAGE_BUDGET_ITEMS_KEY);
       return storedBudget ? new Map(JSON.parse(storedBudget)) : new Map();
     } catch (error) { console.error("Error loading budget items:", error); return new Map(); }
   });
-  
   const [aiBudgetGeneratedForToken, setAiBudgetGeneratedForToken] = useState(() => {
     try {
       const stored = localStorage.getItem(LOCALSTORAGE_AI_BUDGET_GENERATED_KEY);
       return stored ? new Map(JSON.parse(stored)) : new Map();
     } catch (error) { console.error("Error loading AI budget status:", error); return new Map(); }
   });
-  
-  const [grants, setGrants] = useState(() => {
-    try {
-      const storedGrants = localStorage.getItem(LOCALSTORAGE_GRANTS_KEY);
-      return storedGrants ? new Map(JSON.parse(storedGrants)) : new Map();
-    } catch (error) { console.error("Error loading grants:", error); return new Map(); }
-  });
 
-  // Social Features State
-  const [comments, setComments] = useState(() => {
-    try {
-      const stored = localStorage.getItem(LOCALSTORAGE_COMMENTS_KEY);
-      return stored ? new Map(JSON.parse(stored)) : new Map();
-    } catch (error) { console.error("Error loading comments:", error); return new Map(); }
-  });
-
-  const [likes, setLikes] = useState(() => {
-    try {
-      const stored = localStorage.getItem(LOCALSTORAGE_LIKES_KEY);
-      return stored ? new Map(JSON.parse(stored)) : new Map();
-    } catch (error) { console.error("Error loading likes:", error); return new Map(); }
-  });
-  
   const [toast, setToast] = useState(null);
+
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
+    try {
+      // FIX: Ensuring LOCALSTORAGE_ONBOARDING_COMPLETE_KEY is used correctly
+      const storedOnboarding = localStorage.getItem(LOCALSTORAGE_ONBOARDING_COMPLETE_KEY);
+      return storedOnboarding ? JSON.parse(storedOnboarding) : false;
+    } catch (error) { console.error("Error loading onboarding status:", error); return false; }
+  });
 
   const throttledSetSupportPages = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_PAGES_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
   const throttledSetSupported = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_SUPPORTED_KEY, JSON.stringify(Array.from(value))), 500), []);
   const throttledSetCreatorVerified = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_CREATOR_VERIFIED_KEY, JSON.stringify(value)), 500), []);
   const throttledSetBudgetItems = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_BUDGET_ITEMS_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
   const throttledSetAIBudgetGenerated = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_AI_BUDGET_GENERATED_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
-  const throttledSetGrants = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_GRANTS_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
+  // FIX: Ensuring LOCALSTORAGE_ONBOARDING_COMPLETE_KEY is used correctly
+  const throttledSetOnboardingComplete = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_ONBOARDING_COMPLETE_KEY, JSON.stringify(value)), 500), []);
+
 
   useEffect(() => { throttledSetSupportPages(supportPages); }, [supportPages, throttledSetSupportPages]);
   useEffect(() => { throttledSetSupported(supportedByMe); }, [supportedByMe, throttledSetSupported]);
   useEffect(() => { throttledSetCreatorVerified(isCreatorVerified); }, [isCreatorVerified, throttledSetCreatorVerified]);
   useEffect(() => { throttledSetBudgetItems(budgetItems); }, [budgetItems, throttledSetBudgetItems]);
   useEffect(() => { throttledSetAIBudgetGenerated(aiBudgetGeneratedForToken); }, [aiBudgetGeneratedForToken, throttledSetAIBudgetGenerated]);
-  useEffect(() => { throttledSetGrants(grants); }, [grants, throttledSetGrants]);
+  useEffect(() => { throttledSetOnboardingComplete(hasCompletedOnboarding); }, [hasCompletedOnboarding, throttledSetOnboardingComplete]);
+
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding) {
+      setScreen('Onboarding');
+    } else if (!screen) { 
+      setScreen('DiscoveryScreen'); 
+    }
+  }, [hasCompletedOnboarding, screen]);
+
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type, key: Date.now() });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const createSupportPage = useCallback((pageData) => {
-    const pageId = Date.now().toString();
-    const newPage = { id: pageId, ...pageData, supporters: 0, amount: 0 };
-    setSupportPages(prev => new Map(prev).set(pageId, newPage));
-    return pageId;
+  const navigateTo = useCallback((screenName, pageId = null) => {
+    setScreen(screenName);
+    if (pageId !== undefined) { 
+        setActiveSupportPageId(pageId);
+    }
   }, []);
 
-  const supportPage = useCallback((pageId, amount) => {
-    setSupportPages(prev => {
-      const newMap = new Map(prev);
-      const page = newMap.get(pageId);
-      if (page) {
-        newMap.set(pageId, { ...page, supporters: page.supporters + 1, amount: page.amount + amount });
-      }
-      return newMap;
+  const completeOnboarding = useCallback(() => {
+    setHasCompletedOnboarding(true);
+  }, []);
+
+  const toggleCreatorVerified = useCallback(() => {
+    setIsCreatorVerified(prev => {
+        const newState = !prev;
+        if (newState) {
+            showToast('Creator Verified!', 'success');
+        } else {
+            showToast('Creator verification removed.', 'info'); 
+        }
+        return newState;
     });
-    setSupportedByMe(prev => new Set(prev).add(pageId));
-    showToast('Thank you for your support!', 'success');
   }, [showToast]);
 
-  const createBudgetItem = useCallback((itemData) => {
-    const itemId = Date.now().toString();
-    const newItem = { id: itemId, ...itemData };
-    setBudgetItems(prev => new Map(prev).set(itemId, newItem));
-    return itemId;
-  }, []);
-
-  const deleteBudgetItem = useCallback((itemId) => {
-    setBudgetItems(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(itemId);
-      return newMap;
-    });
-  }, []);
-
-  const isPageSupportedByMe = useCallback((pageId) => supportedByMe.has(pageId), [supportedByMe]);
-
-  // AI Functions
-  const generateAIBudget = useCallback(async (projectDescription, projectGoal) => {
-    try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.REACT_APP_GOOGLE_AI_API_KEY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Create a realistic budget breakdown for this project: "${projectDescription}" with a goal of $${projectGoal}. 
-
-Return exactly 5-7 budget items in this exact JSON format (no markdown, no extra text):
-[
-  {"name": "Item Name", "amount": 150.00, "category": "Equipment", "description": "Brief description"},
-  {"name": "Item Name", "amount": 75.00, "category": "Software", "description": "Brief description"}
-]
-
-Categories must be one of: Equipment, Software, Marketing, Materials, Services, Other
-Amounts should be realistic and add up to roughly the goal amount.`
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to generate budget');
-      
-      const data = await response.json();
-      const budgetText = data.candidates[0].content.parts[0].text;
-      
-      // Parse the JSON response
-      const budgetData = JSON.parse(budgetText.replace(/```json\n?|\n?```/g, ''));
-      
-      // Add budget items to state
-      budgetData.forEach(item => {
-        const itemId = Date.now().toString() + Math.random();
-        const newItem = { 
-          id: itemId, 
-          ...item, 
-          createdAt: new Date().toISOString(),
-          isAIGenerated: true 
-        };
-        setBudgetItems(prev => new Map(prev).set(itemId, newItem));
-      });
-
-      showToast('AI budget generated successfully!', 'success');
-      return true;
-    } catch (error) {
-      console.error('AI Budget Generation Error:', error);
-      showToast('Failed to generate AI budget. Please try again.', 'error');
-      return false;
+  const createSupportPage = useCallback((pageDetails) => {
+    if (!isCreatorVerified) {
+        showToast('Please verify as a creator first to create a Support Page.', 'error');
+        return;
     }
-  }, [showToast]);
-
-  const generateGrantIdeas = useCallback(async (projectDescription, projectCategory) => {
-    try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.REACT_APP_GOOGLE_AI_API_KEY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Find relevant grants for this ${projectCategory} project: "${projectDescription}"
-
-Return exactly 3-5 grant opportunities in this exact JSON format (no markdown, no extra text):
-[
-  {
-    "name": "Grant Name",
-    "organization": "Organization Name",
-    "amount": "Up to $X,XXX",
-    "deadline": "Month Year or Rolling",
-    "description": "Brief description of what they fund",
-    "eligibility": "Key eligibility requirements",
-    "website": "https://website.com or Contact for info"
-  }
-]
-
-Focus on real, relevant grants for ${projectCategory} projects. Include a mix of government, foundation, and corporate grants.`
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to generate grants');
-      
-      const data = await response.json();
-      const grantsText = data.candidates[0].content.parts[0].text;
-      
-      // Parse the JSON response
-      const grantsData = JSON.parse(grantsText.replace(/```json\n?|\n?```/g, ''));
-      
-      // Add grants to state
-      grantsData.forEach(grant => {
-        const grantId = Date.now().toString() + Math.random();
-        const newGrant = { 
-          id: grantId, 
-          ...grant, 
-          createdAt: new Date().toISOString(),
-          isAIGenerated: true 
-        };
-        setGrants(prev => new Map(prev).set(grantId, newGrant));
-      });
-
-      showToast('Grant opportunities found!', 'success');
-      return true;
-    } catch (error) {
-      console.error('Grant Generation Error:', error);
-      showToast('Failed to find grants. Please try again.', 'error');
-      return false;
-    }
-  }, [showToast]);
-
-  // AI Avatar Generation
-  const generateAvatar = useCallback(async (name, style = 'professional') => {
-    try {
-      // Using DiceBear API for avatar generation (free, no API key needed)
-      const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-      return avatarUrl;
-    } catch (error) {
-      console.error('Avatar Generation Error:', error);
-      showToast('Failed to generate avatar', 'error');
-      return null;
-    }
-  }, [showToast]);
-
-  // AI Project Image Generation (using placeholder service)
-  const generateProjectImage = useCallback(async (projectTitle, category) => {
-    try {
-      // Using Unsplash for project images (free, no API key needed)
-      const keywords = `${category},${projectTitle.split(' ').slice(0, 2).join(',')}`;
-      const imageUrl = `https://source.unsplash.com/800x400/?${encodeURIComponent(keywords)}`;
-      return imageUrl;
-    } catch (error) {
-      console.error('Project Image Generation Error:', error);
-      showToast('Failed to generate project image', 'error');
-      return null;
-    }
-  }, [showToast]);
-
-  // AI Description Enhancement
-  const enhanceDescription = useCallback(async (basicDescription, projectType) => {
-    try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.REACT_APP_GOOGLE_AI_API_KEY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Enhance this ${projectType} project description to be more compelling and professional for crowdfunding:
-
-Original: "${basicDescription}"
-
-Make it:
-- More engaging and persuasive
-- Clear about the project's value
-- Include why people should support it
-- Keep it concise but compelling (2-3 paragraphs max)
-- Professional but approachable tone
-
-Return only the enhanced description, no extra formatting.`
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to enhance description');
-      
-      const data = await response.json();
-      const enhancedText = data.candidates[0].content.parts[0].text.trim();
-      
-      showToast('Description enhanced!', 'success');
-      return enhancedText;
-    } catch (error) {
-      console.error('Description Enhancement Error:', error);
-      showToast('Failed to enhance description', 'error');
-      return basicDescription; // Return original on failure
-    }
-  }, [showToast]);
-
-  // AI Title Generation
-  const generateProjectTitle = useCallback(async (description, category) => {
-    try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.REACT_APP_GOOGLE_AI_API_KEY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Generate 3 compelling project titles for this ${category} project:
-
-Description: "${description}"
-
-Requirements:
-- Catchy and memorable
-- Clear about what the project is
-- Good for crowdfunding campaigns
-- 3-8 words each
-
-Return exactly 3 titles in this format (no extra text):
-1. Title One
-2. Title Two  
-3. Title Three`
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to generate titles');
-      
-      const data = await response.json();
-      const titlesText = data.candidates[0].content.parts[0].text.trim();
-      
-      // Parse the titles
-      const titles = titlesText.split('\n')
-        .filter(line => line.match(/^\d+\./))
-        .map(line => line.replace(/^\d+\.\s*/, '').trim());
-      
-      return titles;
-    } catch (error) {
-      console.error('Title Generation Error:', error);
-      showToast('Failed to generate titles', 'error');
-      return [];
-    }
-  }, [showToast]);
-
-  // World ID Verification
-  const handleWorldIdVerification = useCallback((result) => {
-    try {
-      const worldIdData = {
-        nullifier_hash: result.nullifier_hash,
-        merkle_root: result.merkle_root,
-        proof: result.proof,
-        verification_level: result.verification_level,
-        verified_at: new Date().toISOString()
-      };
-      
-      setWorldIdVerified(worldIdData);
-      localStorage.setItem(LOCALSTORAGE_WORLD_ID_KEY, JSON.stringify(worldIdData));
-      setScreen('Dashboard');
-      showToast('Welcome to Backed! You are now verified as a real human.', 'success');
-    } catch (error) {
-      console.error('World ID verification error:', error);
-      showToast('Verification failed. Please try again.', 'error');
-    }
-  }, [showToast]);
-
-  const handleSimulatedVerification = useCallback(() => {
-    try {
-      const simulatedWorldIdData = {
-        nullifier_hash: 'simulated_nullifier_' + Date.now(),
-        merkle_root: 'simulated_merkle_root',
-        proof: 'simulated_proof_data',
-        verification_level: 'orb',
-        verified_at: new Date().toISOString(),
-        simulated: true
-      };
-      
-      setWorldIdVerified(simulatedWorldIdData);
-      localStorage.setItem(LOCALSTORAGE_WORLD_ID_KEY, JSON.stringify(simulatedWorldIdData));
-      setScreen('Dashboard');
-      showToast('🔒 Simulated verification successful! Welcome to Backed!', 'success');
-    } catch (error) {
-      console.error('Simulated verification error:', error);
-      showToast('Simulated verification failed. Please try again.', 'error');
-    }
-  }, [showToast]);
-
-  // Social Features
-  const addComment = useCallback((pageId, comment) => {
-    const commentId = Date.now().toString();
-    const newComment = {
-      id: commentId,
-      pageId,
-      text: comment,
-      author: worldIdVerified ? 'Verified Human' : 'Anonymous',
-      isVerified: !!worldIdVerified,
-      timestamp: new Date().toISOString()
+    const newId = `page_${Date.now()}`;
+    const newPage = { 
+        ...pageDetails, 
+        id: newId, 
+        creatorName: pageDetails.creatorName || "Anonymous Creator", 
+        raised: 0, 
+        supporters: 0, 
+        useOfFunds: pageDetails.description,
+        completionRate: 1.0,
+        onTimeDelivery: 1.0,
     };
-    
-    setComments(prev => {
-      const newMap = new Map(prev);
-      const pageComments = newMap.get(pageId) || [];
-      newMap.set(pageId, [...pageComments, newComment]);
-      localStorage.setItem(LOCALSTORAGE_COMMENTS_KEY, JSON.stringify(Array.from(newMap.entries())));
-      return newMap;
-    });
-    
-    showToast('Comment added!', 'success');
-  }, [worldIdVerified, showToast]);
+    setSupportPages(prev => new Map(prev).set(newId, newPage));
+    setActiveSupportPageId(newId); 
+    showToast('Your Support Page is live!', 'success');
+    navigateTo('CreatorDashboard', newId); 
+  }, [navigateTo, showToast, isCreatorVerified]);
 
-  const toggleLike = useCallback((pageId) => {
-    if (!worldIdVerified) {
-      showToast('Please verify with World ID to like projects', 'error');
-      return;
-    }
+  const supportPageAction = useCallback((pageIdToSupport) => {
+    if (!supportPages.has(pageIdToSupport)) { showToast('Support Page not found.', 'error'); return false; }
+    if (supportedByMe.has(pageIdToSupport)) { showToast('You have already supported this creator.', 'error'); navigateTo('SupportVerificationFlow', pageIdToSupport); return false; }
 
-    setLikes(prev => {
-      const newMap = new Map(prev);
-      const pageLikes = newMap.get(pageId) || new Set();
-      const userHash = worldIdVerified.nullifier_hash;
-      
-      if (pageLikes.has(userHash)) {
-        pageLikes.delete(userHash);
-      } else {
-        pageLikes.add(userHash);
+    const page = supportPages.get(pageIdToSupport);
+    const updatedPage = { ...page, raised: page.raised + page.price, supporters: page.supporters + 1 };
+    setSupportPages(prev => new Map(prev).set(pageIdToSupport, updatedPage));
+    setSupportedByMe(prev => new Set(prev).add(pageIdToSupport));
+    showToast('Thanks for your support!', 'success'); 
+    navigateTo('SupportConfirmation', pageIdToSupport);
+    return true;
+  }, [supportPages, supportedByMe, navigateTo, showToast]);
+
+  const copyToClipboard = useCallback((text, message = 'Link copied!') => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        showToast(message,'success');
+      })
+      .catch(err => {
+        console.error('Failed to copy with navigator.clipboard: ', err);
+        try {
+            const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta);
+            ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+            showToast(message, 'success');
+        } catch (fallbackErr) {
+            showToast('Failed to copy.', 'error'); 
+            console.error('Fallback copy failed: ', fallbackErr);
+        }
+      });
+  }, [showToast]);
+
+  const addOrUpdateBudgetItem = useCallback((tokenId, itemData, itemIdToUpdate) => {
+    setBudgetItems(prevBudgetItems => {
+      const currentItems = prevBudgetItems.get(tokenId) || [];
+      let updatedItems;
+      if (itemIdToUpdate) { 
+        updatedItems = currentItems.map(i => 
+          i.id === itemIdToUpdate ? { ...i, ...itemData } : i 
+        );
+      } else { 
+        const newItem = { ...itemData, id: `budget_${Date.now()}_${Math.random().toString(36).substr(2,5)}` };
+        updatedItems = [...currentItems, newItem];
       }
-      
-      newMap.set(pageId, pageLikes);
-      localStorage.setItem(LOCALSTORAGE_LIKES_KEY, JSON.stringify(Array.from(newMap.entries()).map(([k, v]) => [k, Array.from(v)])));
-      return newMap;
+      return new Map(prevBudgetItems).set(tokenId, updatedItems);
     });
-  }, [worldIdVerified, showToast]);
+  }, []);
 
-  const getPageLikes = useCallback((pageId) => {
-    const pageLikes = likes.get(pageId) || new Set();
-    return pageLikes.size;
-  }, [likes]);
+  const setInitialBudgetForToken = useCallback((tokenId, itemsFromAI) => {
+    const initialItems = itemsFromAI.map(item => ({
+        description: item.description, 
+        amount: item.amount, 
+        aiEstimateNotes: item.aiEstimateNotes, 
+        id: `budget_ai_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+    }));
+    setBudgetItems(prev => new Map(prev).set(tokenId, initialItems));
+    setAiBudgetGeneratedForToken(prev => new Map(prev).set(tokenId, true));
+  }, []);
 
-  const isPageLikedByUser = useCallback((pageId) => {
-    if (!worldIdVerified) return false;
-    const pageLikes = likes.get(pageId) || new Set();
-    return pageLikes.has(worldIdVerified.nullifier_hash);
-  }, [likes, worldIdVerified]);
 
-  const getPageComments = useCallback((pageId) => {
-    return comments.get(pageId) || [];
-  }, [comments]);
+  const removeBudgetItem = useCallback((tokenId, itemId) => {
+    setBudgetItems(prev => {
+      const current = prev.get(tokenId) || [];
+      return new Map(prev).set(tokenId, current.filter(i => i.id !== itemId));
+    });
+  }, []);
 
-  const value = {
-    screen, setScreen,
-    activeSupportPageId, setActiveSupportPageId,
-    isCreatorVerified, setIsCreatorVerified,
-    supportPages, setSupportPages,
-    supportedByMe, setSupportedByMe,
-    budgetItems, setBudgetItems,
-    aiBudgetGeneratedForToken, setAiBudgetGeneratedForToken,
-    grants, setGrants,
-    toast, showToast,
-    createSupportPage, supportPage, isPageSupportedByMe,
-    createBudgetItem, deleteBudgetItem,
-    generateAIBudget, generateGrantIdeas,
-    generateAvatar, generateProjectImage, enhanceDescription, generateProjectTitle,
-    // World ID & Social Features
-    worldIdVerified, handleWorldIdVerification, handleSimulatedVerification,
-    addComment, toggleLike, getPageLikes, isPageLikedByUser, getPageComments
-  };
+  const contextValue = useMemo(() => ({
+    screen, activeSupportPageId, supportPages, supportedByMe, toast, isCreatorVerified,
+    budgetItems, aiBudgetGeneratedForToken, hasCompletedOnboarding, 
+    navigateTo, showToast, createSupportPage, supportPageAction, copyToClipboard,
+    toggleCreatorVerified, completeOnboarding, 
+    addOrUpdateBudgetItem, removeBudgetItem, setInitialBudgetForToken
+  }), [
+    screen, activeSupportPageId, supportPages, supportedByMe, toast, isCreatorVerified, 
+    budgetItems, aiBudgetGeneratedForToken, hasCompletedOnboarding, 
+    navigateTo, showToast, createSupportPage, supportPageAction, copyToClipboard,
+    toggleCreatorVerified, completeOnboarding, 
+    addOrUpdateBudgetItem, removeBudgetItem, setInitialBudgetForToken
+  ]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
 };
 
-const useApp = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
-};
-
-// --- Toast Component ---
-const Toast = () => {
-  const { toast } = useApp();
-
+// --- UI Components ---
+// ... (Rest of the components are assumed to be correct and are omitted for brevity)
+// ... (The fix was primarily about ensuring the constant was correctly in scope/defined)
+const ToastNotification = ({ /* ... */ }) => {
+  const { toast } = useContext(AppContext);
   if (!toast) return null;
-
-  const toastStyles = {
-    info: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
-    success: { bg: '#F0FDF4', border: C3_SUCCESS_GREEN, text: '#15803D' },
-    error: { bg: '#FEF2F2', border: C3_ERROR_RED, text: '#DC2626' }
-  };
-
-  const style = toastStyles[toast.type] || toastStyles.info;
-
+  let bgColor, textColor;
+  switch (toast.type) {
+    case 'success': bgColor = `bg-[${C3_SUCCESS_GREEN}]`; textColor = 'text-white'; break;
+    case 'error': bgColor = `bg-[${C3_ERROR_RED}]`; textColor = 'text-white'; break;
+    default: bgColor = `bg-gray-700`; textColor = 'text-white';
+  }
   return (
-    <div
-      style={{
-        position: 'fixed', top: '20px', right: '20px', zIndex: 1000,
-        backgroundColor: style.bg, border: `1px solid ${style.border}`,
-        color: style.text, padding: '12px 16px', borderRadius: '8px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
-        maxWidth: '300px', fontSize: '14px'
-      }}
-    >
-      {toast.message}
+    <div className={`fixed top-5 right-5 ${bgColor} ${textColor} p-3.5 rounded-md shadow-lg z-50 animate-slide-in-down flex items-center text-sm`}>
+      {toast.type === 'success' && <CheckCircle size={16} className="mr-2" />}
+      {toast.type === 'error' && <XCircle size={16} className="mr-2" />}
+      {toast.type === 'info' && <Info size={16} className="mr-2" />}
+      <span>{toast.message}</span>
     </div>
   );
 };
 
-// --- Logo Component ---
-const GradientSphereLogo = ({ size = 28 }) => (
+const GradientSphereLogo = ({ size = 28, className = "" }) => ( 
   <div
     style={{
       width: size, height: size, borderRadius: '50%',
       background: `radial-gradient(circle at 30% 25%, ${C3_LOGO_HIGHLIGHT} 0%, ${C3_LOGO_MID} 35%, ${C3_LOGO_BASE} 80%)`,
       boxShadow: '0 2px 4px rgba(0,0,0,0.06), inset 0 1px 1px rgba(255,255,255,0.15)', 
     }}
-    className="mr-2"
+    className={`mr-2 ${className}`} 
   />
 );
 
-// --- Button Component ---
-const Button = ({ children, onClick, variant = 'primary', size = 'md', disabled = false, className = '', style = {} }) => {
-  const baseStyle = {
-    border: 'none', borderRadius: '8px', cursor: disabled ? 'not-allowed' : 'pointer',
-    fontWeight: '500', transition: 'all 0.2s ease', display: 'inline-flex',
-    alignItems: 'center', justifyContent: 'center', gap: '6px'
-  };
-
-  const sizeStyles = {
-    sm: { padding: '6px 12px', fontSize: '14px' },
-    md: { padding: '10px 16px', fontSize: '16px' },
-    lg: { padding: '12px 20px', fontSize: '18px' }
-  };
-
-  const variantStyles = {
-    primary: {
-      backgroundColor: disabled ? '#9CA3AF' : C3_ACCENT_COLOR, color: 'white',
-      boxShadow: disabled ? 'none' : '0 1px 3px rgba(0, 0, 0, 0.1)'
-    },
-    secondary: {
-      backgroundColor: disabled ? '#F3F4F6' : C3_CARD_BG_LIGHT,
-      color: disabled ? '#9CA3AF' : C3_TEXT_PRIMARY_LIGHT,
-      border: `1px solid ${disabled ? '#D1D5DB' : C3_BORDER_LIGHT}`
-    },
-    outline: {
-      backgroundColor: 'transparent', color: disabled ? '#9CA3AF' : C3_ACCENT_COLOR,
-      border: `1px solid ${disabled ? '#D1D5DB' : C3_ACCENT_COLOR}`
-    }
-  };
+const Header = () => {
+  const { navigateTo, screen, hasCompletedOnboarding } = useContext(AppContext); 
+  if (screen === 'Onboarding' || !hasCompletedOnboarding) return null; 
 
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={className}
-      style={{ ...baseStyle, ...sizeStyles[size], ...variantStyles[variant], ...style }}
-    >
-      {children}
-    </button>
+    <header className={`p-4 border-b`} style={{ backgroundColor: C3_PRIMARY_BLACK, borderColor: '#333' }}>
+      <div className="container mx-auto flex items-center justify-between">
+        <div className="flex items-center cursor-pointer" onClick={() => navigateTo('DiscoveryScreen')}> 
+          <GradientSphereLogo />
+          <h1 className={`text-xl font-semibold text-white`}>Backed</h1>
+        </div>
+        <nav className="flex items-center space-x-2">
+            {screen !== 'DiscoveryScreen' && (
+                 <button
+                    onClick={() => navigateTo('DiscoveryScreen')}
+                    className={`text-sm py-2 px-3 rounded-md hover:bg-gray-700 flex items-center text-white font-medium`}
+                    style={{ backgroundColor: '#2D3748' }} >
+                    <Search size={16} className="mr-1.5" /> Discover
+                </button>
+            )}
+             <button
+                onClick={() => navigateTo('CreatorDashboard')}
+                className={`text-sm py-2 px-3 rounded-md hover:bg-gray-700 flex items-center border font-medium text-gray-300`}
+                style={{ borderColor: '#4A5568' }} >
+                Dashboard
+            </button>
+        </nav>
+      </div>
+    </header>
   );
 };
 
-// --- Input Component ---
-const Input = ({ label, value, onChange, placeholder = '', type = 'text', required = false, className = '', style = {} }) => (
-  <div className={className} style={style}>
-    {label && (
-      <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-        {label} {required && <span style={{ color: C3_ERROR_RED }}>*</span>}
-      </label>
-    )}
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      required={required}
-      style={{
-        width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-        borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-        color: C3_TEXT_PRIMARY_LIGHT
-      }}
-    />
+const ProgressBar = ({ current, total, label, small = false }) => { 
+  const percentage = total > 0 ? Math.min((current / total) * 100, 100) : 0;
+  return (
+    <div className={small ? "my-0.5" : "my-1"}>
+      {label && <p className={`text-xs font-medium mb-1`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>{label}</p>}
+      <div className={`w-full rounded-full ${small ? 'h-1' : 'h-1.5'}`} style={{backgroundColor: C3_BORDER_LIGHT}}>
+        <div className={`${small ? 'h-1' : 'h-1.5'} rounded-full`} style={{ width: `${percentage}%`, background: `linear-gradient(to right, ${C3_LOGO_MID}, ${C3_LOGO_BASE})` }}></div>
+      </div>
+      {!small && total > 0 && ( 
+          <p className={`text-xs mt-1 text-right`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+            $${current.toLocaleString()} / $${total.toLocaleString()} USDC
+          </p>
+      )}
+    </div>
+  );
+};
+
+const SelectField = ({ label, name, value, onChange, options, required = false, error }) => (
+  <div className="mb-2">
+    <label htmlFor={name} className={`block text-xs font-medium mb-1`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+      {label} {required && <span style={{ color: C3_ERROR_RED }}>*</span>}
+    </label>
+    <select
+      id={name} name={name} value={value} onChange={onChange} required={required}
+      className={`w-full p-2.5 rounded-md border outline-none focus:ring-1 focus:ring-opacity-75 text-sm ${error ? `border-[${C3_ERROR_RED}] focus:ring-[${C3_ERROR_RED}]` : `border-[${C3_BORDER_LIGHT}] focus:ring-[${C3_ACCENT_COLOR}]`}`} 
+      style={{ backgroundColor: C3_CARD_BG_LIGHT, color: C3_TEXT_PRIMARY_LIGHT }}
+    >
+      <option value="">-- Select --</option>
+      {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+    </select>
+    {error && <p className="text-xs mt-1" style={{ color: C3_ERROR_RED }}>{error}</p>}
   </div>
 );
 
-// --- TextArea Component ---
-const TextArea = ({ label, value, onChange, placeholder = '', rows = 3, required = false, className = '', style = {} }) => (
-  <div className={className} style={style}>
-    {label && (
-      <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-        {label} {required && <span style={{ color: C3_ERROR_RED }}>*</span>}
-      </label>
-    )}
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      required={required}
-      style={{
-        width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-        borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-        color: C3_TEXT_PRIMARY_LIGHT, resize: 'vertical'
-      }}
-    />
+
+const InputField = ({ label, type = 'text', value, onChange, placeholder, name, required = false, step, error, as = "input", children }) => {
+  const commonProps = {
+    id: name, name: name, value: value, onChange: onChange, placeholder: placeholder, required: required,
+    className: `w-full p-2.5 rounded-md border outline-none focus:ring-1 focus:ring-opacity-75 text-sm ${error ? `border-[${C3_ERROR_RED}] focus:ring-[${C3_ERROR_RED}]` : `border-[${C3_BORDER_LIGHT}] focus:ring-[${C3_ACCENT_COLOR}]`}`, 
+    style: { backgroundColor: C3_CARD_BG_LIGHT, color: C3_TEXT_PRIMARY_LIGHT }
+  };
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between items-center mb-1">
+        <label htmlFor={name} className={`block text-xs font-medium`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+          {label} {required && <span style={{ color: C3_ERROR_RED }}>*</span>}
+        </label>
+        {children} 
+      </div>
+      {as === "textarea" ? (
+        <textarea {...commonProps} rows={as === "textarea" && type === "small" ? 2 : 3} /> 
+      ) : (
+        <input type={type} step={step} {...commonProps} />
+      )}
+      {error && <p className="text-xs mt-1" style={{ color: C3_ERROR_RED }}>{error}</p>}
+    </div>
+  );
+};
+
+const Button = ({ onClick, children, primary = false, className = '', type = 'button', disabled = false, icon: IconComponent, small = false }) => (
+  <button
+    type={type} onClick={onClick} disabled={disabled}
+    className={`font-medium shadow-sm transition-opacity duration-200 flex items-center justify-center ${primary ? `text-white` : `border`} ${disabled ? 'opacity-50 cursor-not-allowed' : `hover:opacity-90`} ${small ? 'py-1.5 px-3 text-xs rounded-md' : 'w-full py-2.5 px-4 rounded-md text-sm'} ${className}`} 
+    style={{ backgroundColor: primary ? C3_PRIMARY_BLACK : 'transparent', color: primary ? (disabled ? C3_TEXT_SECONDARY_LIGHT : 'white') : C3_ACCENT_COLOR, borderColor: primary ? 'transparent' : C3_BORDER_LIGHT }} 
+  >
+    {IconComponent && <IconComponent size={small ? 14 : 16} className="mr-1.5" />} 
+    {children}
+  </button>
+);
+
+const Card = ({ children, className = "", ...rest }) => (
+  <div 
+    className={`p-4 md:p-6 rounded-xl border shadow-sm ${className}`} 
+    style={{ backgroundColor: C3_CARD_BG_LIGHT, borderColor: C3_BORDER_LIGHT }}
+    {...rest}
+  >
+    {children}
   </div>
 );
 
-// --- World Landing Screen ---
-const WorldLandingScreen = () => {
-  const { handleWorldIdVerification, handleSimulatedVerification, worldIdVerified } = useApp();
+// --- Screen Components ---
+const OnboardingScreen = () => {
+    const { navigateTo, completeOnboarding } = useContext(AppContext);
 
-  if (worldIdVerified) {
-    return <DashboardScreen />;
+    const handleNavigate = (screen) => {
+        completeOnboarding();
+        navigateTo(screen);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center" style={{ backgroundColor: C3_LIGHT_BG }}>
+            <GradientSphereLogo size={64} className="mb-6" />
+            <h1 className="text-4xl font-bold mb-3" style={{ color: C3_TEXT_PRIMARY_LIGHT }}>
+                Welcome to <span className="hero-gradient-text">Backed</span>!
+            </h1>
+            <p className="text-lg mb-8 max-w-md" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+                The simple, secure way to support creators directly using World ID and on-chain contributions.
+            </p>
+            <div className="space-y-4 w-full max-w-xs">
+                <Button onClick={() => handleNavigate('CreatorSetup')} primary icon={Edit3}>
+                    I'm a Creator (Create Support Page)
+                </Button>
+                <Button onClick={() => handleNavigate('DiscoveryScreen')} icon={Search}>
+                    I want to Support (Discover Creators)
+                </Button>
+            </div>
+            <p className="text-xs mt-12" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                Empowering verified human creativity, resiliently.
+            </p>
+        </div>
+    );
+};
+
+
+const CreatorSetupScreen = ({ /* ... */ }) => {
+  const { createSupportPage, showToast, isCreatorVerified, toggleCreatorVerified } = useContext(AppContext);
+  const [formData, setFormData] = useState({ 
+    creatorName: '', tokenName: '', price: '', goal: '', description: '', utility: '',
+    creatorAvatarData: null, projectImageData: null 
+  });
+  const [errors, setErrors] = useState({});
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [descriptionSuggestions, setDescriptionSuggestions] = useState([]);
+  const [isGeneratingPerks, setIsGeneratingPerks] = useState(false);
+  const [perkSuggestions, setPerkSuggestions] = useState([]);
+
+  const [generatedAvatarData, setGeneratedAvatarData] = useState(formData.creatorAvatarData);
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [generatedProjectImageData, setGeneratedProjectImageData] = useState(formData.projectImageData);
+  const [isGeneratingProjectImage, setIsGeneratingProjectImage] = useState(false);
+
+  useEffect(() => {
+    if (formData.creatorName.trim().length > 2 && !generatedAvatarData && !isGeneratingAvatar) { 
+      handleGenerateAvatar(true); 
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.creatorName]); 
+
+  useEffect(() => {
+    if (formData.tokenName.trim().length > 2 && !generatedProjectImageData && !isGeneratingProjectImage) {
+      handleGenerateProjectImage(true); 
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.tokenName]);
+
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+  };
+
+  const validateForm = () => { 
+    const newErrors = {};
+    if (!formData.creatorName.trim()) newErrors.creatorName = "Creator name is required.";
+    if (!formData.tokenName.trim()) newErrors.tokenName = "Support Page Name is required.";
+    if (!formData.description.trim()) newErrors.description = "Description is required.";
+    const priceNum = parseFloat(formData.price);
+    if (isNaN(priceNum) || priceNum <= 0) newErrors.price = "Contribution Amount must be a positive number.";
+    if (formData.goal) {
+      const goalNum = parseFloat(formData.goal);
+      if (isNaN(goalNum) || goalNum < 0) newErrors.goal = "Funding goal must be a non-negative number.";
+      else if (priceNum > 0 && goalNum > 0 && goalNum < priceNum) newErrors.goal = "Funding goal should be >= Contribution Amount.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleVerifyWorldId = () => {
+    toggleCreatorVerified(); 
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!isCreatorVerified) {
+        showToast('Please verify as a creator first.', 'error');
+        return;
+    }
+    if (!validateForm()) { showToast('Please correct errors.', 'error'); return; }
+    createSupportPage({ 
+        ...formData, 
+        price: parseFloat(formData.price), 
+        goal: formData.goal ? parseFloat(formData.goal) : 0,
+        creatorAvatarData: generatedAvatarData, 
+        projectImageData: generatedProjectImageData,
+    });
+  };
+
+  const callImagenAPI = async (prompt, setImageDataState, setLoadingState, imageTypeForToast, isAuto = false) => {
+    setLoadingState(true);
+    if (!isAuto) setImageDataState(null); 
+    if (!isAuto || (isAuto && !imageTypeForToast.includes("retry"))) showToast(`✨ AI is generating ${imageTypeForToast}...`, "info");
+
+
+    const payload = { instances: [{ prompt: prompt }], parameters: { "sampleCount": 1 } };
+    const apiKey = ""; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error?.message || `Imagen API request failed: ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+        const imageData = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+        setImageDataState(imageData); 
+        if (!isAuto) showToast(`✨ AI ${imageTypeForToast} generated!`, "success");
+      } else {
+        if (!isAuto) throw new Error(`AI did not return a valid ${imageTypeForToast}.`);
+        else console.warn(`Auto-generation for ${imageTypeForToast} did not return image.`);
+      }
+    } catch (e) {
+      console.error(`Error with Imagen API for ${imageTypeForToast}:`, e);
+      if (!isAuto) showToast(`AI ${imageTypeForToast} generation error: ${e.message}`, "error");
+    } finally {
+      setLoadingState(false);
+    }
+  };
+
+  const handleGenerateAvatar = (isAuto = false) => {
+    if (!formData.creatorName.trim() && !isAuto) { 
+      showToast("Please enter Creator Name first.", "error");
+      return;
+    }
+    const prompt = `8-bit pixel art style avatar for a web3 creator named "${formData.creatorName || 'Creator'}". Simple, clean, modern, suitable for a small profile picture. Vibrant colors.`;
+    callImagenAPI(prompt, setGeneratedAvatarData, setIsGeneratingAvatar, isAuto ? "avatar (auto)" : "avatar", isAuto);
+  };
+
+  const handleGenerateProjectImage = (isAuto = false) => {
+    if (!formData.tokenName.trim() && !isAuto) {
+      showToast("Please enter Support Page Name first.", "error");
+      return;
+    }
+    const prompt = `8-bit pixel art style abstract banner image representing a creative project or support campaign called "${formData.tokenName || 'My Project'}". Modern, clean, optimistic, with subtle digital or network motifs. Suitable for a webpage banner (wide aspect ratio). Tech-inspired.`;
+    callImagenAPI(prompt, setGeneratedProjectImageData, setIsGeneratingProjectImage, isAuto ? "project image (auto)" : "project image", isAuto);
+  };
+
+
+  const callGeminiForSuggestionsAPI = async (prompt, setSuggestionsState, setLoadingState, fieldNameForToast) => {
+    setLoadingState(true);
+    setSuggestionsState([]); 
+    showToast(`✨ AI is brainstorming ${fieldNameForToast}...`, "info");
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            suggestions: {
+              type: "ARRAY",
+              items: { type: "STRING", description: "A single suggestion." }
+            }
+          },
+          required: ["suggestions"]
+        }
+      }
+    };
+    const apiKey = ""; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error?.message || `API request failed: ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+        if (parsedJson.suggestions && Array.isArray(parsedJson.suggestions)) {
+          setSuggestionsState(parsedJson.suggestions);
+          showToast(`✨ AI has some ${fieldNameForToast} ideas!`, "success");
+        } else {
+          throw new Error(`AI response for ${fieldNameForToast} was not in the expected format.`);
+        }
+      } else {
+        throw new Error(`AI did not return valid ${fieldNameForToast} suggestions.`);
+      }
+    } catch (e) {
+      console.error(`Error with AI for ${fieldNameForToast}:`, e);
+      showToast(`AI error for ${fieldNameForToast}: ${e.message}`, "error");
+      setSuggestionsState([]); 
+    } finally {
+      setLoadingState(false);
+    }
+  };
+
+  const handleGenerateDescriptionSuggestions = () => {
+    if (!formData.tokenName.trim()) {
+      showToast("Please enter a Support Page Name first.", "error");
+      return;
+    }
+    const prompt = `Generate 3 distinct, compelling, and concise project description suggestions (each 1-2 sentences) for a creator's support page named "${formData.tokenName}". The creator is ${formData.creatorName || 'an amazing creator'}. Focus on what the support helps fund or achieve.`;
+    callGeminiForSuggestionsAPI(prompt, setDescriptionSuggestions, setIsGeneratingDesc, "descriptions");
+  };
+
+  const handleGeneratePerkSuggestions = () => {
+    if (!formData.tokenName.trim() || !formData.description.trim()) {
+        showToast("Please enter Support Page Name and Description first for perk ideas.", "error");
+        return;
+    }
+    const prompt = `For a creator's support page named "${formData.tokenName}" which is about "${formData.description}", suggest 3-5 distinct and appealing perk ideas for supporters. Each perk should be a short phrase. Examples: "Early access to new content", "Exclusive Discord role", "Behind-the-scenes updates", "Personalized thank-you note", "Vote on future projects".`;
+    callGeminiForSuggestionsAPI(prompt, setPerkSuggestions, setIsGeneratingPerks, "perks");
+  };
+
+  const SuggestionButtons = ({ suggestions, onSelect, fieldName }) => {
+    if (!suggestions || suggestions.length === 0) return null;
+    return (
+      <div className="mt-2 mb-3 space-y-1">
+        <p className="text-xs" style={{color: C3_TEXT_SECONDARY_LIGHT}}>AI Suggestions for {fieldName}:</p>
+        {suggestions.map((suggestion, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => onSelect(suggestion)}
+            className="w-full text-left text-xs p-2 rounded-md border hover:bg-gray-50 transition-colors"
+            style={{borderColor: C3_BORDER_LIGHT, color: C3_TEXT_PRIMARY_LIGHT}}
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-md mx-auto p-4">
+      <h2 className={`text-2xl font-semibold mb-6 text-center`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Create Your Support Page</h2>
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-4"> 
+          <InputField name="creatorName" label="Creator Name" value={formData.creatorName} onChange={handleChange} placeholder="Your name or alias" required error={errors.creatorName} />
+          <div className="mb-2 p-3 border rounded-md" style={{borderColor: C3_BORDER_LIGHT}}>
+            <label className="block text-xs font-medium mb-1.5" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Creator Avatar</label>
+            <div className="flex items-center space-x-3">
+                {generatedAvatarData ? (
+                <img src={generatedAvatarData} alt="Creator Avatar" className="w-16 h-16 rounded-full object-cover border" />
+                ) : isGeneratingAvatar ? (
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse">Generating...</div>
+                ) : (
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center"><UserCircle size={32} className="text-gray-300"/></div>
+                )}
+                <div className="flex flex-col space-y-1.5">
+                    <Button onClick={() => handleGenerateAvatar(false)} disabled={isGeneratingAvatar || !formData.creatorName.trim()} small icon={RefreshCw} className="w-auto text-xs">Regenerate ✨</Button>
+                    <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto text-xs">Upload</Button>
+                </div>
+            </div>
+          </div>
+
+          <InputField name="tokenName" label="Support Page Name" value={formData.tokenName} onChange={handleChange} placeholder="e.g., My Art Fund" required error={errors.tokenName} />
+           <div className="mb-2 p-3 border rounded-md" style={{borderColor: C3_BORDER_LIGHT}}>
+            <label className="block text-xs font-medium mb-1.5" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Project Image / Banner</label>
+            {generatedProjectImageData ? (
+                 <img src={generatedProjectImageData} alt="Project Banner" className="w-full h-32 object-cover rounded-md border" />
+            ) : isGeneratingProjectImage ? (
+                <div className="w-full h-32 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse">Generating Image...</div>
+            ): (
+                <div className="w-full h-32 rounded-md bg-gray-100 flex items-center justify-center"><ImageIcon size={32} className="text-gray-300"/></div>
+            )}
+            <div className="flex space-x-2 mt-1.5">
+                <Button onClick={() => handleGenerateProjectImage(false)} disabled={isGeneratingProjectImage || !formData.tokenName.trim()} small icon={RefreshCw} className="w-auto text-xs">Regenerate ✨</Button>
+                <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto text-xs">Upload</Button>
+            </div>
+          </div>
+          <InputField name="price" label="Set Contribution Amount (USDC)" type="number" value={formData.price} onChange={handleChange} placeholder="e.g., 5" required step="0.01" error={errors.price} />
+          <InputField name="goal" label="Target Funding Goal (USDC, Optional)" type="number" value={formData.goal} onChange={handleChange} placeholder="e.g., 1000" step="0.01" error={errors.goal} />
+
+          <InputField name="description" label="Description (What are you funding?)" value={formData.description} onChange={handleChange} placeholder="Help me create my next masterpiece!" required error={errors.description} as="textarea">
+            <button type="button" onClick={handleGenerateDescriptionSuggestions} disabled={isGeneratingDesc || !formData.tokenName.trim()} className="p-1 text-gray-400 hover:text-accent-color transition-colors">
+              <Sparkles size={16} />
+            </button>
+          </InputField>
+          <SuggestionButtons suggestions={descriptionSuggestions} onSelect={(s) => setFormData(p => ({...p, description: s}))} fieldName="Description" />
+
+          <InputField 
+            name="utility" 
+            label="Supporter Perks (optional)" 
+            value={formData.utility} 
+            onChange={handleChange} 
+            placeholder="e.g., early-access, Discord role, exclusive download" 
+            as="textarea" 
+            type="small" 
+          >
+            <button type="button" onClick={handleGeneratePerkSuggestions} disabled={isGeneratingPerks || !formData.tokenName.trim() || !formData.description.trim()} className="p-1 text-gray-400 hover:text-accent-color transition-colors">
+              <Sparkles size={16} />
+            </button>
+          </InputField>
+          <SuggestionButtons suggestions={perkSuggestions} onSelect={(s) => setFormData(p => ({...p, utility: s}))} fieldName="Perks" />
+
+          <div className="pt-3 space-y-3"> 
+            <Button onClick={handleVerifyWorldId} icon={isCreatorVerified ? CheckCircle : Globe} className={isCreatorVerified ? "!border-green-500 !text-green-600" : ""}>
+                {isCreatorVerified ? 'Creator Verified!' : 'Verify with World ID (Simulated)'}
+            </Button>
+            <Button type="submit" primary icon={Rocket} disabled={!isCreatorVerified}>Create Support Page</Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
+const PublicTokenPage = ({ /* ... */ }) => {
+  const { supportPages, activeSupportPageId, navigateTo, copyToClipboard, showToast } = useContext(AppContext);
+  const page = activeSupportPageId ? supportPages.get(activeSupportPageId) : null; 
+  const [showMatchingInfo, setShowMatchingInfo] = useState(false);
+
+  useEffect(() => {
+    if (!activeSupportPageId) {
+        navigateTo('DiscoveryScreen'); 
+    } else if (activeSupportPageId && !supportPages.has(activeSupportPageId)) { 
+        showToast("Support Page not found.", "error");
+        navigateTo('DiscoveryScreen');
+    }
+  }, [page, activeSupportPageId, navigateTo, showToast, supportPages]);
+
+  if (!page) { // FIX: Ensure this conditional return is correctly structured
+    return ( 
+      <div className="p-4 text-center" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+        Loading support page details...
+        <Button onClick={() => navigateTo('DiscoveryScreen')} className="mt-4" icon={Search}>Go to Discovery</Button>
+      </div>
+    );
   }
 
+  const shareLink = () => { 
+    const link = `https://yourapp.com/page/${page.id}`;
+    copyToClipboard(link);
+  };
+
   return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ maxWidth: '600px', textAlign: 'center' }}>
-        {/* Hero Section */}
-        <div style={{ marginBottom: '48px' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
-            <div style={{ position: 'relative' }}>
-              <GradientSphereLogo size={80} />
-              <div style={{ 
-                position: 'absolute', top: '-8px', right: '-8px',
-                backgroundColor: '#22c55e', borderRadius: '50%', padding: '4px'
-              }}>
-                <Shield size={20} color="white" />
-              </div>
+    <div className="max-w-lg mx-auto p-4">
+      <button onClick={() => navigateTo('DiscoveryScreen')} className={`mb-4 text-sm flex items-center hover:opacity-75`} style={{color: C3_ACCENT_COLOR}}>
+        <ChevronLeft size={16} className="mr-1" /> Back to Discovery
+      </button>
+      <Card className="mb-4">
+        {page.projectImageData ? (
+            <img 
+                src={page.projectImageData} 
+                alt={`${page.tokenName} project image`} 
+                className="w-full h-48 object-cover rounded-md mb-4" 
+            />
+        ) : ( 
+            <div className="w-full h-48 bg-gray-200 rounded-md mb-4 flex items-center justify-center">
+                 <ImageIcon size={40} className="text-gray-400" />
             </div>
-          </div>
-          
-          <h1 style={{ fontSize: '42px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '16px', lineHeight: '1.2' }}>
-            The First <span style={{ color: '#22c55e' }}>Scam-Proof</span><br />Creator Platform
-          </h1>
-          
-          <p style={{ fontSize: '20px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '32px', lineHeight: '1.5' }}>
-            Fund creators you can trust. Every user is verified as a real human through World ID.
-          </p>
+        )}
 
-          {/* Value Props */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '24px', marginBottom: '48px' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                backgroundColor: '#f0fdf4', borderRadius: '50%', width: '60px', height: '60px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'
-              }}>
-                <UserCheck size={28} color="#22c55e" />
-              </div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-                No Fake Supporters
-              </h3>
-              <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                Every backer verified as real human
-              </p>
+        <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center">
+                {page.creatorAvatarData ? (
+                    <img src={page.creatorAvatarData} alt={page.creatorName} className="w-10 h-10 rounded-full mr-3 object-cover"/>
+                ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 mr-3 flex items-center justify-center">
+                        <UserCircle size={24} className="text-gray-400"/>
+                    </div>
+                )}
+                <div>
+                    <h2 className={`text-2xl md:text-3xl font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>{page.tokenName}</h2>
+                    <p className={`text-sm md:text-md`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>by {page.creatorName}</p>
+                </div>
             </div>
-
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                backgroundColor: '#eff6ff', borderRadius: '50%', width: '60px', height: '60px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'
-              }}>
-                <Globe size={28} color="#3b82f6" />
-              </div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-                Global Trust
-              </h3>
-              <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                Built on World Network verification
-              </p>
-            </div>
-
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                backgroundColor: '#fef7ff', borderRadius: '50%', width: '60px', height: '60px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'
-              }}>
-                <Zap size={28} color="#8b5cf6" />
-              </div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-                AI-Powered
-              </h3>
-              <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                Smart tools to launch faster
-              </p>
-            </div>
-          </div>
+            <button onClick={shareLink} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <Share2 size={20} style={{ color: C3_ACCENT_COLOR }} />
+            </button>
+        </div>
+        <div className="mb-4">
+          <p className={`text-xl md:text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>{page.price.toLocaleString()} USDC <span className={`text-sm font-normal`} style={{color: C3_TEXT_SECONDARY_LIGHT}}>/ contribution</span></p>
         </div>
 
-        {/* World ID Verification */}
-        <div style={{ 
-          backgroundColor: C3_CARD_BG_LIGHT, padding: '32px', borderRadius: '20px', 
-          border: `2px solid #22c55e`, marginBottom: '24px',
-          boxShadow: '0 10px 25px rgba(34, 197, 94, 0.1)'
-        }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '16px' }}>
-            Join the Verified Creator Community
-          </h2>
-          <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '24px' }}>
-            Verify you're human to start creating and supporting projects
-          </p>
-          
-          <IDKitWidget
-            app_id={process.env.REACT_APP_WORLD_APP_ID || "app_staging_2a0c1a10e8b8af51e9c8f2c8a5b4a3d2"}
-            action="backed_verification"
-            onSuccess={handleWorldIdVerification}
-            handleVerify={(result) => Promise.resolve(result)}
-          >
-            {({ open }) => (
-              <Button 
-                onClick={open}
-                size="lg"
-                style={{ 
-                  backgroundColor: '#22c55e', borderColor: '#22c55e',
-                  fontSize: '18px', padding: '16px 32px', borderRadius: '12px',
-                  boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)'
-                }}
-              >
-                <Shield size={20} /> Verify with World ID
-              </Button>
+        {page.goal > 0 && <div className="mb-6"><ProgressBar current={page.raised} total={page.goal} label="Funding Goal Progress" /></div>}
+        <div className="mb-6">
+          <h3 className={`text-lg font-semibold mb-2`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Use of Funds</h3>
+          <p className={`text-sm leading-relaxed`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>{page.useOfFunds}</p>
+        </div>
+
+        {page.utility && (
+          <div className="mb-6 p-3 rounded-md border" style={{borderColor: C3_ACCENT_COLOR, backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}` }}>
+            <h3 className={`text-md font-semibold mb-1 flex items-center`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>
+              <Gift size={16} className="mr-2" style={{color: C3_ACCENT_COLOR}} /> Supporter Perks
+            </h3>
+            {page.utility.includes('\n') || page.utility.includes(',') || page.utility.includes(';') ? (
+                <ul className="list-disc list-inside pl-1 space-y-0.5 text-sm" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                    {page.utility.split(/[\n,;]+/).map(perk => perk.trim()).filter(perk => perk).map((perk, idx) => <li key={idx}>{perk}</li>)}
+                </ul>
+            ) : (
+                <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>{page.utility}</p>
             )}
-          </IDKitWidget>
-          
-          {/* Simulated Verification for Testing */}
-          <div style={{ 
-            marginTop: '16px', padding: '16px', backgroundColor: '#fef3c7', 
-            borderRadius: '12px', border: '1px dashed #d97706' 
-          }}>
-            <p style={{ fontSize: '14px', color: '#92400e', marginBottom: '12px', textAlign: 'center' }}>
-              🧪 For testing: World ID not available in your region?
-            </p>
-            <Button 
-              onClick={handleSimulatedVerification}
-              variant="secondary"
-              size="sm"
-              style={{ 
-                backgroundColor: '#fbbf24', borderColor: '#f59e0b', color: 'white',
-                fontSize: '14px', width: '100%'
-              }}
-            >
-              <Shield size={16} /> Use Simulated Verification
-            </Button>
           </div>
+        )}
+
+        <div className="flex justify-between items-center mb-6 text-sm" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+          <div className="flex items-center"><Users size={16} className="mr-1.5" />{page.supporters} Supporters</div>
+          {page.raised > 0 && (<div className="flex items-center"><TrendingUp size={16} className="mr-1.5" />$${page.raised.toLocaleString()} Raised</div>)}
         </div>
 
-        {/* Trust Indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={16} color="#22c55e" />
-            <span>Privacy-preserving</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={16} color="#22c55e" />
-            <span>Decentralized</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={16} color="#22c55e" />
-            <span>Secure</span>
-          </div>
+        <div className="mb-6 p-4 rounded-md bg-sky-50 border border-sky-200">
+            <div className="flex justify-between items-center">
+                 <p className="text-sm font-medium text-sky-700">
+                    Matching Bonus: <span className="font-semibold">Enabled!</span>
+                 </p>
+                 <button className="ml-1 text-xs underline text-sky-600 hover:text-sky-800" onClick={() => setShowMatchingInfo(!showMatchingInfo)}>
+                    {showMatchingInfo ? 'Hide details' : 'How it works?'}
+                </button>
+            </div>
+            {showMatchingInfo && (
+                <div className="mt-2.5 text-xs space-y-1.5" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                    <p className="font-medium" style={{color: C3_TEXT_PRIMARY_LIGHT}}>We partner with leading organizations to boost your contribution:</p>
+                    <ul className="list-disc list-inside pl-2 space-y-1">
+                        <li><strong>Allo.Capital:</strong> Leverages Quadratic Funding, where many unique contributions can attract significantly more matching funds than a single large one. Your voice matters!</li>
+                        <li><strong>Artizen:</strong> Provides matching funds specifically for creator-led projects, helping bring bold ideas to life.</li>
+                    </ul>
+                    <p className="mt-1.5"><em>(Matching fund simulation: +$0.25 per contribution)</em></p>
+                </div>
+            )}
         </div>
-      </div>
+
+        <Button onClick={() => navigateTo('SupportVerificationFlow', page.id)} primary icon={Globe}>Verify & Support</Button>
+        <p className="text-xs text-center mt-2" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+            Verified supporters unlock a +25% matching boost (simulation).
+        </p>
+      </Card>
     </div>
   );
 };
 
-// --- Creator Setup Screen ---
-const CreatorSetupScreen = () => {
-  const { setIsCreatorVerified, setScreen, showToast, generateAvatar } = useApp();
-  const [step, setStep] = useState(1);
-  const [verificationData, setVerificationData] = useState({
-    name: '', bio: '', twitter: '', website: '', avatar: ''
-  });
-  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+// ... (Rest of the components: SupportVerificationFlow, SupportConfirmationScreen, CreatorDashboard, DiscoveryScreen, TokenCard, AIGrantScoutScreen, BudgetingScreen)
+// ... (They should be largely the same as the previous version, with minor terminology updates if necessary)
 
-  const handleInputChange = (field, value) => {
-    setVerificationData(prev => ({ ...prev, [field]: value }));
+const SupportVerificationFlow = ({ /* ... */ }) => {
+  const { activeSupportPageId, supportPages, supportPageAction, supportedByMe, navigateTo, showToast } = useContext(AppContext); 
+  const [isVerifying, setIsVerifying] = useState(false); 
+  const [verificationStatus, setVerificationStatus] = useState(''); 
+  const [showFeeModal, setShowFeeModal] = useState(false); 
+
+  const page = activeSupportPageId ? supportPages.get(activeSupportPageId) : null;
+  const supportPrice = page ? page.price : 0;
+  const platformFee = page ? parseFloat((page.price * 0.01).toFixed(2)) : 0; 
+  const totalCharged = page ? supportPrice + platformFee : 0;
+
+  const proceedWithSupport = () => {
+    setShowFeeModal(false);
+    setIsVerifying(true);
+    setVerificationStatus('');
+    setTimeout(() => { 
+      if (!activeSupportPageId) { showToast("No active Support Page.", "error"); navigateTo('DiscoveryScreen'); setIsVerifying(false); return; }
+      if (supportedByMe.has(activeSupportPageId)) setVerificationStatus('failed_already_supported');
+      else {
+        const success = supportPageAction(activeSupportPageId); 
+        if (success) setVerificationStatus('success'); 
+        else { setVerificationStatus('failed_generic'); navigateTo('PublicTokenPage', activeSupportPageId); } 
+      }
+      setIsVerifying(false);
+    }, 1500);
   };
 
-  const handleGenerateAvatar = async () => {
-    if (!verificationData.name.trim()) {
-      showToast('Please enter your name first', 'error');
-      return;
-    }
-    
-    setIsGeneratingAvatar(true);
-    const avatarUrl = await generateAvatar(verificationData.name);
-    setIsGeneratingAvatar(false);
-    
-    if (avatarUrl) {
-      setVerificationData(prev => ({ ...prev, avatar: avatarUrl }));
+  const handleInitialSupportClick = () => {
+    if (supportedByMe.has(activeSupportPageId)) {
+      setVerificationStatus('failed_already_supported');
+      showToast("You've already supported this creator.", 'error');
+    } else {
+      setShowFeeModal(true); 
     }
   };
 
-  const handleSubmit = () => {
-    if (!verificationData.name.trim()) {
-      showToast('Please enter your name', 'error');
-      return;
-    }
-    setIsCreatorVerified(true);
-    setScreen('Dashboard');
-    showToast('Creator profile set up successfully!', 'success');
-  };
 
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-              <GradientSphereLogo size={64} />
+  useEffect(() => {
+    if (activeSupportPageId && supportedByMe.has(activeSupportPageId) && verificationStatus !== 'failed_already_supported' && !showFeeModal && !isVerifying) {
+      setVerificationStatus('failed_already_supported');
+      showToast("You've already supported this creator.", 'error'); 
+    } else if (!activeSupportPageId && !isVerifying && !showFeeModal) { 
+        showToast("No Support Page selected for verification.", "error");
+        navigateTo('DiscoveryScreen');
+    }
+  }, [activeSupportPageId, supportedByMe, isVerifying, verificationStatus, showFeeModal, showToast, navigateTo]);
+
+  if (!page && !isVerifying) { 
+    return (
+      <div className="p-4 text-center" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+        Loading support page information...
+        <Button onClick={() => navigateTo('DiscoveryScreen')} className="mt-4" icon={Search}>Go to Discovery</Button>
+      </div>
+    );
+  }
+
+  if (showFeeModal) {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-sm">
+                <h3 className="text-lg font-semibold mb-3 text-center" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Confirm Your Support</h3>
+                <div className="space-y-1 text-sm mb-4">
+                    <div className="flex justify-between"><span>Contribution Amount:</span> <span>$${supportPrice.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Platform Fee (1%):</span> <span>$${platformFee.toFixed(2)}</span></div>
+                    <hr className="my-1 border-gray-200"/>
+                    <div className="flex justify-between font-semibold"><span>Total Charged:</span> <span>$${totalCharged.toFixed(2)}</span></div>
+                </div>
+                <p className="text-xs text-center mb-4" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                    This is a simulated transaction.
+                </p>
+                <div className="space-y-2">
+                    <Button onClick={proceedWithSupport} primary>Confirm & Support</Button>
+                    <Button onClick={() => {setShowFeeModal(false); navigateTo('PublicTokenPage', activeSupportPageId);}}>Cancel</Button>
+                </div>
+            </Card>
+        </div>
+    );
+  }
+
+
+  return ( 
+    <div className="max-w-md mx-auto p-4 text-center">
+      <Card>
+        <h2 className={`text-2xl font-semibold mb-6`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Support Verification</h2>
+        {isVerifying && (<><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-t-2 mx-auto mb-4" style={{borderColor: C3_ACCENT_COLOR, borderTopColor: 'transparent'}}></div><p style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Simulating World ID verification & payment...</p></>)}
+        {!isVerifying && verificationStatus === 'failed_already_supported' && (<><Info size={40} className={`mx-auto mb-4`} style={{ color: C3_ACCENT_COLOR }} /><p className={`mb-6`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>You've already supported this creator.</p><Button onClick={() => navigateTo('PublicTokenPage', activeSupportPageId)} icon={Eye}>View Support Page</Button></>)}
+        {!isVerifying && verificationStatus === 'failed_generic' && (<><XCircle size={40} className={`mx-auto mb-4`} style={{ color: C3_ERROR_RED }} /><p className={`mb-6`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Support failed. Please try again.</p><Button onClick={() => navigateTo('PublicTokenPage', activeSupportPageId)} icon={ChevronLeft}>Back to Support Page</Button></>)}
+        {!isVerifying && !verificationStatus && !showFeeModal && (
+            <>
+                <p className={`mb-4`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Click below to proceed with your support.</p>
+                <Button onClick={handleInitialSupportClick} primary icon={Check}>Proceed with Support</Button>
+            </>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+
+const SupportConfirmationScreen = ({ /* ... */ }) => {
+  const { supportPages, activeSupportPageId, navigateTo, copyToClipboard } = useContext(AppContext);
+  const page = activeSupportPageId ? supportPages.get(activeSupportPageId) : null;
+
+  useEffect(() => { if (!page) navigateTo('DiscoveryScreen'); }, [page, navigateTo]); 
+  if (!page) return <div style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Loading confirmation...</div>;
+
+  const matchingBonus = page.supporters * 0.25; 
+  const shareLink = () => copyToClipboard(`https://yourapp.com/page/${page.id}`, 'Support Page link copied!');
+
+  return ( 
+    <div className="max-w-md mx-auto p-4 text-center">
+      <Card>
+        <PartyPopper size={40} className={`mx-auto mb-4`} style={{color: C3_ACCENT_COLOR}} />
+        <h2 className={`text-2xl font-semibold mb-2`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Thanks for your support of {page.creatorName}!</h2>
+        <p className={`mb-6`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Thank you for empowering creators.</p>
+        <div className={`p-4 rounded-md mb-6 border`} style={{ backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_ACCENT_COLOR }}>
+          <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Total Raised for {page.tokenName}:</p>
+          <p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>$${page.raised.toLocaleString()} USDC</p>
+          {matchingBonus > 0 && <p className={`text-sm mt-1`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Includes +$${matchingBonus.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} matching bonus (simulated)</p>}
+          <p className="text-xs text-gray-500 mt-2">
+            Funds arrive instantly in the creator’s World App wallet and can be spent
+            with the Worldcoin Card (simulation).
+          </p>
+        </div>
+        <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-md text-center">
+            <Gift size={24} className="mx-auto mb-2 text-indigo-600" />
+            <p className="text-sm font-medium text-indigo-700">You've received a unique Supporter Badge!</p>
+            <p className="text-xs text-indigo-500">(View in Wallet - Simulated)</p>
+        </div>
+
+        <div className="space-y-3 mt-6"> 
+          <Button onClick={shareLink} primary icon={Share2}>Share This Support Page</Button>
+          <Button onClick={() => navigateTo('DiscoveryScreen')} icon={Search}>Discover More Creators</Button>
+        </div>
+        <p className="text-xs text-gray-500 mt-4 pt-2 border-t border-gray-200">
+            This support item is a non-transferable show-of-support, not a financial instrument.
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+
+const CreatorDashboard = ({ /* ... */ }) => {
+  const { supportPages, copyToClipboard, navigateTo, activeSupportPageId } = useContext(AppContext);
+  const creatorSupportPages = useMemo(() => Array.from(supportPages.values()), [supportPages]); 
+
+  if (creatorSupportPages.length === 0) return ( 
+    <div className="p-4 text-center">
+      <Lightbulb size={40} className="mx-auto mb-4 text-yellow-400" />
+      <p style={{ color: C3_TEXT_PRIMARY_LIGHT }} className="text-lg font-medium mb-2">Ready to launch your first creative project? ✨</p>
+      <p style={{ color: C3_TEXT_SECONDARY_LIGHT }} className="mb-4 text-sm">Create a Support Page to start funding your ideas.</p>
+      <Button onClick={() => navigateTo('CreatorSetup')} primary icon={Rocket} className="w-auto mx-auto">Create Support Page</Button>
+    </div>
+  );
+
+  let pageToDisplayDetails = null;
+  if (activeSupportPageId && supportPages.has(activeSupportPageId)) {
+    pageToDisplayDetails = supportPages.get(activeSupportPageId);
+  } else if (creatorSupportPages.length > 0) {
+    pageToDisplayDetails = creatorSupportPages[creatorSupportPages.length - 1];
+  }
+
+  const sharePageLink = (pageId) => copyToClipboard(`https://yourapp.com/page/${pageId}`, 'Support Page link copied!');
+
+  return ( 
+    <div className="max-w-2xl mx-auto p-4 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className={`text-2xl font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Creator Dashboard</h2>
+        <Button onClick={() => navigateTo('CreatorSetup')} className="w-auto" primary icon={Edit3}>New Support Page</Button>
+      </div>
+      {pageToDisplayDetails && ( 
+          <Card className="mb-6">
+            <h3 className={`text-xl font-semibold mb-1`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>{pageToDisplayDetails.tokenName} - Quick Stats</h3>
+             <button onClick={() => sharePageLink(pageToDisplayDetails.id)} className={`text-xs flex items-center mt-1 mb-3 hover:opacity-75 font-medium`} style={{color: C3_ACCENT_COLOR}}><Copy size={12} className="mr-1" /> Copy Link</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-3 rounded-md border`} style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}><p className={`text-xs`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Total Raised</p><p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>$${pageToDisplayDetails.raised.toLocaleString()}</p></div>
+              <div className={`p-3 rounded-md border`} style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}><p className={`text-xs`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Supporters</p><p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>{pageToDisplayDetails.supporters.toLocaleString()}</p></div>
             </div>
-            <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '12px' }}>
-              Welcome to Backed
-            </h1>
-            <p style={{ fontSize: '18px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '32px', maxWidth: '500px', margin: '0 auto 32px' }}>
-              The platform where creators get the support they need to bring their projects to life.
-            </p>
-            <Button onClick={() => setStep(2)} size="lg">
-              Get Started <Rocket size={20} />
-            </Button>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '24px', textAlign: 'center' }}>
-              Set Up Your Creator Profile
-            </h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <Input
-                label="Creator Name"
-                value={verificationData.name}
-                onChange={(value) => handleInputChange('name', value)}
-                placeholder="Enter your name or brand"
-                required
-              />
-
-              {/* AI Avatar Section */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Profile Avatar
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ 
-                    width: '80px', height: '80px', borderRadius: '50%', 
-                    backgroundColor: C3_BORDER_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden'
-                  }}>
-                    {verificationData.avatar ? (
-                      <img src={verificationData.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <User size={32} color={C3_TEXT_SECONDARY_LIGHT} />
-                    )}
-                  </div>
-                  <Button 
-                    onClick={handleGenerateAvatar}
-                    disabled={isGeneratingAvatar || !verificationData.name.trim()}
-                    variant="outline"
-                    style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}
-                  >
-                    {isGeneratingAvatar ? <Sparkles size={16} /> : <Wand2 size={16} />}
-                    {isGeneratingAvatar ? 'Generating...' : 'AI Generate'}
-                  </Button>
+            {pageToDisplayDetails.goal > 0 && (<div className="mt-4"><ProgressBar current={pageToDisplayDetails.raised} total={pageToDisplayDetails.goal} label="Progress Toward Funding Goal" /></div>)}
+            <div className="mt-4">
+                <p className="text-xs font-medium mb-1" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Creator Score (Simulated)</p>
+                <ProgressBar current={Math.min(pageToDisplayDetails.supporters, 100)} total={100} small={true} /> 
+            </div>
+          </Card>
+      )}
+      <h3 className={`text-xl font-semibold mt-6 mb-3`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Your Support Pages ({creatorSupportPages.length})</h3>
+      {creatorSupportPages.length > 0 ? ( 
+        <div className="space-y-3"> 
+          {creatorSupportPages.map(page => (
+            <Card key={page.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4"> 
+              <div className="flex items-center flex-1 min-w-0 mr-2">
+                {page.creatorAvatarData ? (
+                    <img src={page.creatorAvatarData} alt={page.creatorName} className="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0"/>
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-200 mr-3 flex items-center justify-center flex-shrink-0">
+                        <UserCircle size={20} className="text-gray-400"/>
+                    </div>
+                )}
+                <div>
+                    <h4 className="text-md font-semibold truncate" style={{color: C3_TEXT_PRIMARY_LIGHT}}>{page.tokenName}</h4>
+                    <p className="text-xs" style={{color: C3_TEXT_SECONDARY_LIGHT}}>$${page.raised.toLocaleString()} raised from {page.supporters} supporters.</p>
+                    <div className="mt-1 w-32"> 
+                         <ProgressBar current={Math.min(page.supporters, 100)} total={100} small={true} />
+                    </div>
                 </div>
               </div>
-              
-              <TextArea
-                label="Bio"
-                value={verificationData.bio}
-                onChange={(value) => handleInputChange('bio', value)}
-                placeholder="Tell people about yourself and what you create"
-                rows={4}
-              />
-              
-              <Input
-                label="Twitter"
-                value={verificationData.twitter}
-                onChange={(value) => handleInputChange('twitter', value)}
-                placeholder="@yourusername"
-              />
-              
-              <Input
-                label="Website"
-                value={verificationData.website}
-                onChange={(value) => handleInputChange('website', value)}
-                placeholder="https://yourwebsite.com"
-              />
-            </div>
+              <div className="mt-2 sm:mt-0 space-x-2 flex flex-shrink-0">
+                <Button onClick={() => navigateTo('PublicTokenPage', page.id)} small className="w-auto" icon={Eye}>View</Button>
+                <Button onClick={() => navigateTo('BudgetingScreen', page.id)} small className="w-auto" icon={DollarSign}>Budget</Button>
+                <Button onClick={() => sharePageLink(page.id)} small className="w-auto" icon={Copy}>Copy</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (<p style={{color: C3_TEXT_SECONDARY_LIGHT}}>You haven't created any Support Pages yet.</p>)}
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <Button variant="secondary" onClick={() => setStep(1)}>
-                Back
-              </Button>
-              <Button onClick={handleSubmit} style={{ flex: 1 }}>
-                Complete Setup
-              </Button>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh', padding: '40px 20px' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        {renderStep()}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"> 
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateTo('AIGrantScout')}>
+            <div className="flex items-center mb-1.5"><Lightbulb size={16} className={`mr-2`} style={{ color: C3_ACCENT_COLOR }} /><h3 className={`text-lg font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>AI Grant Scout</h3></div>
+            <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Discover funding opportunities tailored for you.</p>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateTo('BudgetingScreen', pageToDisplayDetails ? pageToDisplayDetails.id : (creatorSupportPages.length > 0 ? creatorSupportPages[0].id : null) )}>
+            <div className="flex items-center mb-1.5"><DollarSign size={16} className={`mr-2`} style={{ color: C3_ACCENT_COLOR }} /><h3 className={`text-lg font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Budget & Financials</h3></div>
+            <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Manage your funds and plan your creative projects.</p>
+        </Card>
       </div>
     </div>
   );
 };
 
-// --- Dashboard Screen ---
-const DashboardScreen = () => {
-  const { setScreen, supportPages, budgetItems, grants, worldIdVerified } = useApp();
+const TokenCard = ({ token: page }) => { 
+    const { navigateTo } = useContext(AppContext);
+    return (
+        <Card className="flex flex-col justify-between h-full p-4"> 
+            <div>
+                {page.projectImageData ? (
+                    <img src={page.projectImageData} alt={page.tokenName} className="w-full h-32 object-cover rounded-md mb-2" />
+                ) : (
+                    <div className="w-full h-32 bg-gray-200 rounded-md mb-2 flex items-center justify-center">
+                        <ImageIcon size={32} className="text-gray-400" />
+                    </div>
+                )}
+                <div className="flex items-center mb-1">
+                    {page.creatorAvatarData ? (
+                        <img src={page.creatorAvatarData} alt={page.creatorName} className="w-6 h-6 rounded-full mr-2 object-cover flex-shrink-0"/>
+                    ) : (
+                        <div className="w-6 h-6 rounded-full bg-gray-200 mr-2 flex items-center justify-center flex-shrink-0">
+                            <UserCircle size={16} className="text-gray-400"/>
+                        </div>
+                    )}
+                    <h3 className="text-md font-semibold truncate" style={{color: C3_TEXT_PRIMARY_LIGHT}}>{page.tokenName}</h3> 
+                </div>
+                <p className="text-xs mb-1" style={{color: C3_TEXT_SECONDARY_LIGHT}}>by {page.creatorName}</p>
+                <p className="text-sm font-medium mb-2" style={{color: C3_ACCENT_COLOR}}>{page.price.toLocaleString()} USDC / contribution</p> 
+                {page.goal > 0 && (<ProgressBar current={page.raised} total={page.goal} />)}
+                 <p className="text-xs mt-2" style={{color: C3_TEXT_SECONDARY_LIGHT}}>{page.supporters} supporters</p>
+            </div>
+            <Button onClick={() => navigateTo('PublicTokenPage', page.id)} primary className="mt-3 w-full" icon={Eye}>View Support Page</Button>
+        </Card>
+    );
+};
+const DiscoveryScreen = ({ /* ... */ }) => {
+    const { supportPages, navigateTo } = useContext(AppContext);
+    const allSupportPages = useMemo(() => Array.from(supportPages.values()).reverse(), [supportPages]); 
+    return ( 
+        <div className="max-w-4xl mx-auto p-4">
+            <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-2xl font-semibold" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Discover Support Pages</h2> 
+                 <Button onClick={() => navigateTo('CreatorSetup')} primary icon={Edit3} className="w-auto">Create Page</Button>
+            </div>
+            {allSupportPages.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{allSupportPages.map(page => (<TokenCard key={page.id} token={page} />))}</div>)  
+            : (<div className="text-center py-10"><Search size={40} className="mx-auto mb-4" style={{color: C3_TEXT_SECONDARY_LIGHT}} /><p className="text-lg mb-2" style={{color: C3_TEXT_PRIMARY_LIGHT}}>No Support Pages launched yet.</p><p style={{color: C3_TEXT_SECONDARY_LIGHT}}>Be the first to create a Support Page!</p></div>)} 
+        </div>
+    );
+};
 
-  const totalSupportPages = supportPages.size;
-  const totalSupport = Array.from(supportPages.values()).reduce((sum, page) => sum + page.amount, 0);
-  const totalBudgetItems = budgetItems.size;
-  const totalGrants = grants.size;
+const AIGrantScoutScreen = ({ /* ... */ }) => {
+  const { navigateTo, showToast } = useContext(AppContext);
+  const [projectDescription, setProjectDescription] = useState('');
+  const [suggestedGrants, setSuggestedGrants] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFetchGrants = async () => {
+    if (!projectDescription.trim()) { showToast("Please enter a project description.", "error"); return; }
+    setIsLoading(true); setError(null); setSuggestedGrants([]);
+
+    const prompt = `Based on the following project description, suggest 3-5 fictional but realistic-sounding grant opportunities for a creator. For each grant, provide a "grantName", a brief "grantFocus" (what kind of projects it supports), and a "fundingAmount" (e.g., "$5,000 - $10,000" or "up to $25,000"). Project Description: "${projectDescription}"`;
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT", properties: { grants: { type: "ARRAY", items: { type: "OBJECT", properties: { grantName: { type: "STRING" }, grantFocus: { type: "STRING" }, fundingAmount: { type: "STRING" } }, required: ["grantName", "grantFocus", "fundingAmount"] } } }, required: ["grants"]
+        }
+      }
+    };
+    const apiKey = ""; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    try {
+      const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) { const errData = await response.json(); throw new Error(errData.error?.message || `API Error: ${response.status}`); }
+      const result = await response.json();
+      if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+        if (parsedJson.grants && Array.isArray(parsedJson.grants)) { setSuggestedGrants(parsedJson.grants); }
+        else { throw new Error("Unexpected AI response format."); }
+      } else { throw new Error("AI could not generate suggestions."); }
+    } catch (e) { console.error("Grant Scout Error:", e); setError(e.message); showToast(`Grant Scout Error: ${e.message}`, "error");
+    } finally { setIsLoading(false); }
+  };
 
   return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ backgroundColor: C3_CARD_BG_LIGHT, borderBottom: `1px solid ${C3_BORDER_LIGHT}`, padding: '16px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <GradientSphereLogo size={32} />
-            <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, margin: 0 }}>
-                Backed
-              </h1>
-              <p style={{ fontSize: '12px', color: C3_TEXT_SECONDARY_LIGHT, margin: 0 }}>
-                Scam-Proof Creator Platform
-              </p>
+    <div className="max-w-xl mx-auto p-4">
+      <button onClick={() => navigateTo('CreatorDashboard')} className={`mb-4 text-sm flex items-center hover:opacity-75`} style={{color: C3_ACCENT_COLOR}}><ChevronLeft size={16} className="mr-1" /> Back to Dashboard</button>
+      <Card>
+        <div className="flex items-center mb-4"> <Brain size={20} className="mr-2" style={{color: C3_ACCENT_COLOR}}/><h2 className={`text-xl font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>AI Grant Scout</h2></div>
+        <p className="mb-4 text-sm" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Describe your project, and AI will suggest (fictional) grant opportunities.</p>
+        <InputField name="projectDescription" label="Your Project Description" as="textarea" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} placeholder="e.g., Digital art series on climate change..." required />
+        <Button onClick={handleFetchGrants} primary disabled={isLoading} icon={Send}>{isLoading ? 'Scouting...' : 'Find Grants ✨'}</Button>
+        {error && <p className="mt-4 text-sm text-center" style={{color: C3_ERROR_RED}}>{error}</p>}
+        {suggestedGrants.length > 0 && (
+          <div className="mt-6"><h3 className="text-lg font-semibold mb-3" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Suggested Grants:</h3>
+            <div className="space-y-3"> 
+              {suggestedGrants.map((grant, index) => (
+                <Card key={index} className="border-l-4 p-4" style={{borderColor: C3_ACCENT_COLOR}}> 
+                  <h4 className="font-semibold text-md" style={{color: C3_TEXT_PRIMARY_LIGHT}}>{grant.grantName}</h4>
+                  <p className="text-sm my-1" style={{color: C3_TEXT_SECONDARY_LIGHT}}><strong style={{color: C3_TEXT_PRIMARY_LIGHT}}>Focus:</strong> {grant.grantFocus}</p>
+                  <p className="text-sm" style={{color: C3_TEXT_SECONDARY_LIGHT}}><strong style={{color: C3_TEXT_PRIMARY_LIGHT}}>Funding:</strong> {grant.fundingAmount}</p>
+                  <Button onClick={() => showToast('Apply button (simulated)', 'info')} small className="w-auto px-3 py-1 mt-2 text-xs">Apply (Simulated)</Button> 
+                </Card>
+              ))}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {worldIdVerified && (
-              <div style={{ 
-                display: 'flex', alignItems: 'center', gap: '6px',
-                backgroundColor: '#f0fdf4', color: '#22c55e', padding: '4px 12px', borderRadius: '20px',
-                fontSize: '12px', fontWeight: '500'
-              }}>
-                <UserCheck size={14} />
-                Verified Human
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-            Creator Dashboard
-          </h2>
-          <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT }}>
-            Manage your support pages and track your progress
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-          <div style={{ backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', border: `1px solid ${C3_BORDER_LIGHT}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <Users size={24} color={C3_ACCENT_COLOR} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Support Pages
-              </h3>
-            </div>
-            <p style={{ fontSize: '32px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-              {totalSupportPages}
-            </p>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              Active campaigns
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', border: `1px solid ${C3_BORDER_LIGHT}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <DollarSign size={24} color={C3_SUCCESS_GREEN} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Total Support
-              </h3>
-            </div>
-            <p style={{ fontSize: '32px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-              ${totalSupport.toFixed(2)}
-            </p>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              From supporters
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', border: `1px solid ${C3_BORDER_LIGHT}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <TrendingUp size={24} color={C3_LOGO_MID} />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Budget Items
-              </h3>
-            </div>
-            <p style={{ fontSize: '32px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-              {totalBudgetItems}
-            </p>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              Tracked expenses
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', border: `1px solid ${C3_BORDER_LIGHT}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <Award size={24} color="#8B5CF6" />
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Grant Leads
-              </h3>
-            </div>
-            <p style={{ fontSize: '32px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-              {totalGrants}
-            </p>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              Opportunities found
-            </p>
-          </div>
-        </div>
-
-        {/* Action Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-          <div 
-            onClick={() => setScreen('CreateSupportPage')}
-            style={{ 
-              backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', 
-              border: `1px solid ${C3_BORDER_LIGHT}`, cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.target.style.borderColor = C3_ACCENT_COLOR}
-            onMouseLeave={(e) => e.target.style.borderColor = C3_BORDER_LIGHT}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <PlusCircle size={24} color={C3_ACCENT_COLOR} />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Create Support Page
-              </h3>
-            </div>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px' }}>
-              Launch a new campaign to get support for your next project
-            </p>
-            <Button variant="outline" size="sm">
-              Get Started
-            </Button>
-          </div>
-
-          <div 
-            onClick={() => setScreen('Discovery')}
-            style={{ 
-              backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', 
-              border: `1px solid ${C3_BORDER_LIGHT}`, cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.target.style.borderColor = C3_ACCENT_COLOR}
-            onMouseLeave={(e) => e.target.style.borderColor = C3_BORDER_LIGHT}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <Search size={24} color={C3_ACCENT_COLOR} />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Discover Creators
-              </h3>
-            </div>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px' }}>
-              Find and support other creators in the community
-            </p>
-            <Button variant="outline" size="sm">
-              Explore
-            </Button>
-          </div>
-
-          <div 
-            onClick={() => setScreen('Budgeting')}
-            style={{ 
-              backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', 
-              border: `1px solid ${C3_BORDER_LIGHT}`, cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.target.style.borderColor = C3_ACCENT_COLOR}
-            onMouseLeave={(e) => e.target.style.borderColor = C3_BORDER_LIGHT}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <DollarSign size={24} color={C3_ACCENT_COLOR} />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Budget Planner
-              </h3>
-            </div>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px' }}>
-              Plan and track your project expenses with AI assistance
-            </p>
-            <Button variant="outline" size="sm">
-              Plan Budget
-            </Button>
-          </div>
-
-          <div 
-            onClick={() => setScreen('GrantScout')}
-            style={{ 
-              backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '12px', 
-              border: `1px solid ${C3_BORDER_LIGHT}`, cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.target.style.borderColor = '#8B5CF6'}
-            onMouseLeave={(e) => e.target.style.borderColor = C3_BORDER_LIGHT}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-              <Award size={24} color="#8B5CF6" />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Grant Scout
-              </h3>
-            </div>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px' }}>
-              AI-powered grant discovery tailored to your projects
-            </p>
-            <Button variant="outline" size="sm" style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}>
-              <Brain size={16} /> Find Grants
-            </Button>
-          </div>
-        </div>
-      </div>
+        )}
+      </Card>
     </div>
   );
 };
 
-// --- Create Support Page Screen ---
-const CreateSupportPageScreen = () => {
-  const { setScreen, createSupportPage, showToast, generateProjectImage, enhanceDescription, generateProjectTitle } = useApp();
-  const [formData, setFormData] = useState({
-    title: '', description: '', goal: '', category: 'Art', image: ''
-  });
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingTitles, setIsGeneratingTitles] = useState(false);
-  const [suggestedTitles, setSuggestedTitles] = useState([]);
+const BudgetingScreen = ({ /* ... */ }) => {
+  const { navigateTo, supportPages, activeSupportPageId, budgetItems, addOrUpdateBudgetItem, removeBudgetItem, setInitialBudgetForToken, aiBudgetGeneratedForToken, showToast } = useContext(AppContext); 
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const [projectDetails, setProjectDetails] = useState({ teamSize: '', duration: '', locationType: '', equipmentNeeds: '' });
+  const [projectDetailsErrors, setProjectDetailsErrors] = useState({});
+  const [isGeneratingInitialBudget, setIsGeneratingInitialBudget] = useState(false);
+
+  const [newItemDesc, setNewItemDesc] = useState('');
+  const [newItemAmount, setNewItemAmount] = useState('');
+  const [editingBudgetItemId, setEditingBudgetItemId] = useState(null);
+  const [currentAiEstimateNotes, setCurrentAiEstimateNotes] = useState('');
+
+
+  const [expenseCategorySuggestions, setExpenseCategorySuggestions] = useState([]);
+  const [isFetchingCategories, setIsFetchingCategories] = useState(false);
+
+  let currentSupportPageForBudget = null; 
+  if (activeSupportPageId && supportPages.has(activeSupportPageId)) {
+    currentSupportPageForBudget = supportPages.get(activeSupportPageId);
+  } else if (supportPages.size > 0 && !activeSupportPageId) { 
+    currentSupportPageForBudget = Array.from(supportPages.values())[supportPages.size - 1];
+  }
+
+  const pageHasAiGeneratedBudget = currentSupportPageForBudget ? aiBudgetGeneratedForToken.get(currentSupportPageForBudget.id) || false : false; 
+  const currentBudgetItems = currentSupportPageForBudget ? (budgetItems.get(currentSupportPageForBudget.id) || []) : []; 
+  const totalRaised = currentSupportPageForBudget ? currentSupportPageForBudget.raised : 0;
+  const totalPlannedExpenses = currentBudgetItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+
+  const fundingGoal = currentSupportPageForBudget?.goal > 0 ? currentSupportPageForBudget.goal : null;
+  let remainingOrSurplusVsGoal = null;
+  if (fundingGoal !== null) {
+    remainingOrSurplusVsGoal = fundingGoal - totalPlannedExpenses;
+  }
+  const remainingBudgetAfterRaised = totalRaised - totalPlannedExpenses;
+
+
+  const handleProjectDetailsChange = (e) => {
+    const { name, value } = e.target;
+    setProjectDetails(prev => ({ ...prev, [name]: value }));
+    if(projectDetailsErrors[name]) setProjectDetailsErrors(prev => ({...prev, [name]: null}));
   };
 
-  const handleEnhanceDescription = async () => {
-    if (!formData.description.trim()) {
-      showToast('Please enter a basic description first', 'error');
+  const validateProjectDetails = () => {
+    const errors = {};
+    if (!projectDetails.teamSize) errors.teamSize = "Team size is required.";
+    if (!projectDetails.duration || parseInt(projectDetails.duration) <=0) errors.duration = "Valid duration is required.";
+    if (!projectDetails.locationType) errors.locationType = "Location type is required.";
+    if (!projectDetails.equipmentNeeds.trim()) errors.equipmentNeeds = "Please list key needs.";
+    setProjectDetailsErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const parseAiCostEstimate = (costString) => {
+    if (!costString) return "0";
+    const numbers = costString.match(/\d+([,.]\d+)?/g); 
+    if (numbers && numbers.length > 0) {
+      const firstNum = parseFloat(numbers[0].replace(/,/g, ''));
+      return isNaN(firstNum) ? "0" : firstNum.toString();
+    }
+    return "0"; 
+  };
+
+
+  const handleGenerateInitialBudget = async () => {
+    if (!currentSupportPageForBudget) { showToast("No active Support Page to budget for.", "error"); return; } 
+    if (!validateProjectDetails()) { showToast("Please fill in all project details.", "error"); return; }
+    setIsGeneratingInitialBudget(true);
+    showToast("✨ AI is drafting your initial budget...", "info");
+
+    const prompt = `
+      A creator is launching a project support page named "${currentSupportPageForBudget.tokenName}".
+      Project Description: "${currentSupportPageForBudget.description || 'Not specified'}"
+      Target Funding Goal (if any): ${fundingGoal ? `$${fundingGoal.toLocaleString()}` : 'Not specified'}
+      Project Details:
+      - Team Size: ${projectDetails.teamSize}
+      - Duration: ${projectDetails.duration} months
+      - Location Type: ${projectDetails.locationType}
+      - Key Equipment/Software Needs: ${projectDetails.equipmentNeeds}
+
+      Based on this, generate a list of 5-7 relevant expense categories.
+      For each item, provide "categoryName" (e.g., "Software Licensing"), "estimatedCost" (e.g., "$100/month", "$500 total", "$50-$150 one-time"), and brief "notes" (1 short sentence on why it might be needed or what it covers).
+      The creator will use this as a starting point and adjust the numbers. Try to make the total estimated costs somewhat align with the Target Funding Goal if one is provided, but prioritize realistic common expenses for such a project.
+    `;
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT", properties: { budgetPlan: { type: "ARRAY", items: { type: "OBJECT", properties: { categoryName: { type: "STRING" }, estimatedCost: { type: "STRING" }, notes: { type: "STRING" } }, required: ["categoryName", "estimatedCost", "notes"] } } }, required: ["budgetPlan"]
+        }
+      }
+    };
+    const apiKey = ""; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    try {
+      const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) { const errData = await response.json(); throw new Error(errData.error?.message || `API Error: ${response.status}`); }
+      const result = await response.json();
+      if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+        if (parsedJson.budgetPlan && Array.isArray(parsedJson.budgetPlan)) {
+          const aiBudgetItems = parsedJson.budgetPlan.map(item => ({
+            description: item.categoryName, 
+            amount: parseAiCostEstimate(item.estimatedCost), 
+            aiEstimateNotes: `(AI Est: ${item.estimatedCost}) - ${item.notes}` 
+          }));
+          setInitialBudgetForToken(currentSupportPageForBudget.id, aiBudgetItems); 
+          showToast("✨ AI draft budget generated! Please review and adjust amounts.", "success");
+        } else { throw new Error("Unexpected AI budget format."); }
+      } else { throw new Error("AI could not generate a budget draft."); }
+    } catch (e) { console.error("AI Budget Generation Error:", e); showToast(`AI Budget Error: ${e.message}`, "error");
+    } finally { setIsGeneratingInitialBudget(false); }
+  };
+
+  const handleSaveBudgetItem = (e) => {
+    e.preventDefault();
+    if (!currentSupportPageForBudget) { showToast("Select or create a Support Page first.", "error"); return; } 
+    const amount = parseFloat(newItemAmount);
+    if (!newItemDesc.trim() || isNaN(amount) || amount < 0) { 
+      showToast("Valid description and non-negative amount required.", "error"); return;
+    }
+
+    const itemData = { 
+        description: newItemDesc, 
+        amount: amount.toString(),
+        aiEstimateNotes: editingBudgetItemId ? (currentBudgetItems.find(i => i.id === editingBudgetItemId)?.aiEstimateNotes || '') : '' 
+    };
+
+    addOrUpdateBudgetItem(currentSupportPageForBudget.id, itemData, editingBudgetItemId); 
+
+    setNewItemDesc(''); setNewItemAmount(''); setEditingBudgetItemId(null); setCurrentAiEstimateNotes('');
+    setExpenseCategorySuggestions([]);
+    showToast(editingBudgetItemId ? "Budget item updated!" : "Budget item added!", "success");
+  };
+
+  const handleEditBudgetItem = (item) => {
+    setNewItemDesc(item.description); 
+    setNewItemAmount(item.amount);
+    setEditingBudgetItemId(item.id);
+    setCurrentAiEstimateNotes(item.aiEstimateNotes || ''); 
+    setExpenseCategorySuggestions([]); 
+  };
+
+  const handleFetchExpenseCategorySuggestions = async () => {
+    if (!currentSupportPageForBudget || !currentSupportPageForBudget.tokenName || !currentSupportPageForBudget.description) { 
+      showToast("Support Page name and description needed for category ideas.", "error");
       return;
     }
-    
-    setIsEnhancing(true);
-    const enhanced = await enhanceDescription(formData.description, formData.category);
-    setIsEnhancing(false);
-    
-    if (enhanced && enhanced !== formData.description) {
-      setFormData(prev => ({ ...prev, description: enhanced }));
+    setIsFetchingCategories(true); setExpenseCategorySuggestions([]);
+    showToast("✨ AI is brainstorming categories...", "info");
+    const prompt = `For a creator project support page named "${currentSupportPageForBudget.tokenName}" about: "${currentSupportPageForBudget.description}", suggest 3-5 common expense categories. Provide only the category names as a list.`; 
+    const payload = { 
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            categorySuggestions: {
+              type: "ARRAY",
+              items: { type: "STRING", description: "A single expense category name." }
+            }
+          },
+          required: ["categorySuggestions"]
+        }
+      }
+    };
+    const apiKey = ""; 
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    try {
+      const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) { const errData = await response.json(); throw new Error(errData.error?.message || `API Error: ${response.status}`); }
+      const result = await response.json();
+      if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+        if (parsedJson.categorySuggestions && Array.isArray(parsedJson.categorySuggestions)) {
+          setExpenseCategorySuggestions(parsedJson.categorySuggestions);
+          showToast("✨ AI has category ideas!", "success");
+        } else { throw new Error("Unexpected AI response format for categories."); }
+      } else { throw new Error("AI could not suggest expense categories."); }
+    } catch (e) {
+      console.error("Expense Category Suggestion Error:", e);
+      showToast(`Category Suggestion Error: ${e.message}`, "error");
+      setExpenseCategorySuggestions([]);
+    } finally {
+      setIsFetchingCategories(false);
     }
   };
 
-  const handleGenerateImage = async () => {
-    if (!formData.title.trim()) {
-      showToast('Please enter a project title first', 'error');
-      return;
-    }
-    
-    setIsGeneratingImage(true);
-    const imageUrl = await generateProjectImage(formData.title, formData.category);
-    setIsGeneratingImage(false);
-    
-    if (imageUrl) {
-      setFormData(prev => ({ ...prev, image: imageUrl }));
-    }
-  };
 
-  const handleGenerateTitles = async () => {
-    if (!formData.description.trim()) {
-      showToast('Please enter a description first', 'error');
-      return;
-    }
-    
-    setIsGeneratingTitles(true);
-    const titles = await generateProjectTitle(formData.description, formData.category);
-    setIsGeneratingTitles(false);
-    
-    if (titles.length > 0) {
-      setSuggestedTitles(titles);
-    }
-  };
+  if (!currentSupportPageForBudget) { 
+    return (
+      <div className="max-w-xl mx-auto p-4 text-center">
+         <button onClick={() => navigateTo('CreatorDashboard')} className={`mb-4 text-sm flex items-center hover:opacity-75`} style={{color: C3_ACCENT_COLOR}}><ChevronLeft size={16} className="mr-1" /> Back to Dashboard</button>
+        <Card><Info size={32} className="mx-auto mb-3" style={{color: C3_TEXT_SECONDARY_LIGHT}}/><p style={{color: C3_TEXT_SECONDARY_LIGHT}}>No Support Page selected for budgeting.</p><p className="text-xs mt-1" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Create a Support Page or select one from your dashboard.</p><Button onClick={() => navigateTo('CreatorSetup')} className="mt-4 w-auto mx-auto px-4">Create Support Page</Button></Card>
+      </div>
+    );
+  }
 
-  const selectTitle = (title) => {
-    setFormData(prev => ({ ...prev, title }));
-    setSuggestedTitles([]);
-  };
+  const teamSizeOptions = [ {value: "Solo", label: "Solo"}, {value: "2-3 people", label: "2-3 people"}, {value: "4-5 people", label: "4-5 people"}, {value: "5+ people", label: "5+ people"} ];
+  const locationTypeOptions = [ {value: "Remote", label: "Remote"}, {value: "Co-working Space", label: "Co-working Space"}, {value: "Small Office/Studio", label: "Small Office/Studio"}, {value: "Home Office", label: "Home Office"} ];
 
-  const handleSubmit = () => {
-    if (!formData.title.trim() || !formData.description.trim() || !formData.goal) {
-      showToast('Please fill in all required fields', 'error');
-      return;
-    }
-
-    const goalAmount = parseFloat(formData.goal);
-    if (isNaN(goalAmount) || goalAmount <= 0) {
-      showToast('Please enter a valid goal amount', 'error');
-      return;
-    }
-
-    const pageId = createSupportPage({
-      ...formData,
-      goal: goalAmount,
-      createdAt: new Date().toISOString()
-    });
-
-    showToast('Support page created successfully!', 'success');
-    setScreen('Dashboard');
-  };
 
   return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ backgroundColor: C3_CARD_BG_LIGHT, borderBottom: `1px solid ${C3_BORDER_LIGHT}`, padding: '16px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center' }}>
-          <Button variant="secondary" onClick={() => setScreen('Dashboard')} size="sm" style={{ marginRight: '16px' }}>
-            <ChevronLeft size={16} /> Back
-          </Button>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <GradientSphereLogo size={24} />
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT }}>
-              Create Support Page
-            </h1>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-xl mx-auto p-4">
+      <button onClick={() => navigateTo('CreatorDashboard')} className={`mb-4 text-sm flex items-center hover:opacity-75`} style={{color: C3_ACCENT_COLOR}}><ChevronLeft size={16} className="mr-1" /> Back to Dashboard</button>
+      <Card>
+        <div className="flex items-center mb-1"><DollarSign size={20} className="mr-2" style={{color: C3_ACCENT_COLOR}}/><h2 className={`text-xl font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Budget & Financials</h2></div>
+        <p className="mb-4 text-sm" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Manage funds for: <strong style={{color: C3_TEXT_PRIMARY_LIGHT}}>{currentSupportPageForBudget.tokenName}</strong></p>
 
-      {/* Content */}
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ backgroundColor: C3_CARD_BG_LIGHT, padding: '32px', borderRadius: '16px', border: `1px solid ${C3_BORDER_LIGHT}` }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '24px' }}>
-            Tell us about your project
-          </h2>
+        {!pageHasAiGeneratedBudget && (
+          <Card className="mb-6 bg-sky-50 border-sky-200 p-4">
+            <h3 className="text-lg font-semibold mb-2" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Draft Your Budget with AI ✨</h3>
+            <p className="text-xs mb-3" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Provide project details, and AI will generate an initial budget draft for you to refine.</p>
+            <form onSubmit={(e) => { e.preventDefault(); handleGenerateInitialBudget();}} className="space-y-3">
+              <SelectField name="teamSize" label="Team Size" value={projectDetails.teamSize} onChange={handleProjectDetailsChange} options={teamSizeOptions} required error={projectDetailsErrors.teamSize} />
+              <InputField name="duration" label="Project Duration (Months)" type="number" value={projectDetails.duration} onChange={handleProjectDetailsChange} placeholder="e.g., 6" required error={projectDetailsErrors.duration} />
+              <SelectField name="locationType" label="Location Type" value={projectDetails.locationType} onChange={handleProjectDetailsChange} options={locationTypeOptions} required error={projectDetailsErrors.locationType} />
+              <InputField name="equipmentNeeds" label="Key Equipment/Software Needs" as="textarea" type="small" value={projectDetails.equipmentNeeds} onChange={handleProjectDetailsChange} placeholder="e.g., Adobe Creative Suite, Camera, Hosting fees" required error={projectDetailsErrors.equipmentNeeds} />
+              <Button type="submit" primary icon={Zap} disabled={isGeneratingInitialBudget}>
+                {isGeneratingInitialBudget ? 'Generating Budget...' : 'Generate Draft Budget with AI ✨'}
+              </Button>
+            </form>
+          </Card>
+        )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* AI-Enhanced Project Title */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Project Title <span style={{ color: C3_ERROR_RED }}>*</span>
-                </label>
-                <Button 
-                  onClick={handleGenerateTitles}
-                  disabled={isGeneratingTitles || !formData.description.trim()}
-                  variant="outline"
-                  size="sm"
-                  style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}
-                >
-                  {isGeneratingTitles ? <Sparkles size={14} /> : <Brain size={14} />}
-                  {isGeneratingTitles ? 'Generating...' : 'AI Suggest'}
-                </Button>
+        {pageHasAiGeneratedBudget && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"> 
+              <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
+                <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Total Raised</p>
+                <p className="text-lg font-semibold" style={{color: C3_ACCENT_COLOR}}>$${totalRaised.toLocaleString()}</p>
               </div>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                placeholder="Give your project a compelling title"
-                style={{
-                  width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                  borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                  color: C3_TEXT_PRIMARY_LIGHT
-                }}
-              />
-              
-              {/* AI Title Suggestions */}
-              {suggestedTitles.length > 0 && (
-                <div style={{ marginTop: '8px' }}>
-                  <p style={{ fontSize: '12px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '8px' }}>
-                    AI Suggestions:
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {suggestedTitles.map((title, index) => (
-                      <button
-                        key={index}
-                        onClick={() => selectTitle(title)}
-                        style={{
-                          padding: '8px 12px', border: `1px solid #8B5CF6`, borderRadius: '6px',
-                          backgroundColor: 'transparent', color: '#8B5CF6', fontSize: '14px',
-                          cursor: 'pointer', textAlign: 'left'
-                        }}
-                      >
-                        {title}
-                      </button>
-                    ))}
-                  </div>
+              <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_ERROR_RED}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
+                <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Planned Expenses</p>
+                <p className="text-lg font-semibold" style={{color: C3_ERROR_RED}}>$${totalPlannedExpenses.toLocaleString()}</p>
+              </div>
+              {fundingGoal !== null && (
+                <div className={`p-3 rounded-md border ${remainingOrSurplusVsGoal >= 0 ? `bg-[${C3_SUCCESS_GREEN}${C3_ACCENT_BACKGROUND_ALPHA}]` : `bg-[${C3_ERROR_RED}${C3_ACCENT_BACKGROUND_ALPHA}]`}`} style={{borderColor: C3_BORDER_LIGHT}}> 
+                    <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Remaining/Surplus vs Goal ({`Goal: $${fundingGoal.toLocaleString()}`})</p>
+                    <p className={`text-lg font-semibold ${remainingOrSurplusVsGoal >= 0 ? `text-[${C3_SUCCESS_GREEN}]` : `text-[${C3_ERROR_RED}]`}`}>$${remainingOrSurplusVsGoal.toLocaleString()}</p>
                 </div>
               )}
+               <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_SUCCESS_GREEN}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
+                    <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Funds Available (Raised - Planned)</p>
+                    <p className="text-lg font-semibold" style={{color: C3_SUCCESS_GREEN}}>$${remainingBudgetAfterRaised.toLocaleString()}</p>
+                </div>
             </div>
 
-            {/* AI-Enhanced Description */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Project Description <span style={{ color: C3_ERROR_RED }}>*</span>
-                </label>
-                <Button 
-                  onClick={handleEnhanceDescription}
-                  disabled={isEnhancing || !formData.description.trim()}
-                  variant="outline"
-                  size="sm"
-                  style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}
-                >
-                  {isEnhancing ? <Sparkles size={14} /> : <Wand2 size={14} />}
-                  {isEnhancing ? 'Enhancing...' : 'AI Enhance'}
+            <form onSubmit={handleSaveBudgetItem} className="mb-6 p-4 border rounded-lg" style={{borderColor: C3_BORDER_LIGHT}}>
+              <h3 className="text-md font-semibold mb-2" style={{color: C3_TEXT_PRIMARY_LIGHT}}>{editingBudgetItemId ? 'Edit Expense Item' : 'Add New Expense Item'}</h3>
+              {editingBudgetItemId && currentAiEstimateNotes && (
+                <p className="text-xs mb-2 p-2 rounded bg-yellow-50 border border-yellow-200" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                  <Info size={12} className="inline mr-1" /> {currentAiEstimateNotes}
+                </p>
+              )}
+              <div className="mb-3">
+                <Button type="button" onClick={handleFetchExpenseCategorySuggestions} disabled={isFetchingCategories} small icon={expenseCategorySuggestions.length > 0 ? RefreshCw : Sparkles} className="w-auto">
+                  {isFetchingCategories ? 'Getting Ideas...' : (expenseCategorySuggestions.length > 0 ? 'Refresh Category Ideas ✨' : 'AI Category Ideas ✨')}
                 </Button>
-              </div>
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe what you're creating and why it matters"
-                rows={6}
-                style={{
-                  width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                  borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                  color: C3_TEXT_PRIMARY_LIGHT, resize: 'vertical'
-                }}
-              />
-            </div>
-
-            {/* AI Project Image */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Project Image
-                </label>
-                <Button 
-                  onClick={handleGenerateImage}
-                  disabled={isGeneratingImage || !formData.title.trim()}
-                  variant="outline"
-                  size="sm"
-                  style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}
-                >
-                  {isGeneratingImage ? <Sparkles size={14} /> : <Camera size={14} />}
-                  {isGeneratingImage ? 'Generating...' : 'AI Generate'}
-                </Button>
-              </div>
-              <div style={{ 
-                width: '100%', height: '200px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                borderRadius: '8px', overflow: 'hidden', backgroundColor: C3_BORDER_LIGHT,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>
-                {formData.image ? (
-                  <img src={formData.image} alt="Project" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ textAlign: 'center', color: C3_TEXT_SECONDARY_LIGHT }}>
-                    <ImageIcon size={32} style={{ marginBottom: '8px' }} />
-                    <p style={{ fontSize: '14px' }}>No image yet</p>
+                {expenseCategorySuggestions.length > 0 && (
+                  <div className="mt-2 space-x-1 space-y-1">
+                    {expenseCategorySuggestions.map((cat, idx) => (
+                      <button key={idx} type="button" onClick={() => { setNewItemDesc(cat); setExpenseCategorySuggestions([]); }}
+                        className="text-xs py-1 px-2 rounded-md border hover:bg-gray-100" style={{borderColor: C3_BORDER_LIGHT, color: C3_ACCENT_COLOR}} >{cat}</button>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Input
-                label="Funding Goal"
-                value={formData.goal}
-                onChange={(value) => handleInputChange('goal', value)}
-                placeholder="1000"
-                type="number"
-                required
-              />
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => handleInputChange('category', e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                    borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                    color: C3_TEXT_PRIMARY_LIGHT
-                  }}
-                >
-                  <option value="Art">Art</option>
-                  <option value="Music">Music</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Film">Film</option>
-                  <option value="Writing">Writing</option>
-                  <option value="Games">Games</option>
-                  <option value="Other">Other</option>
-                </select>
+              <div className="flex flex-col sm:flex-row sm:space-x-2">
+                <div className="flex-grow mb-2 sm:mb-0"><InputField name="expenseDesc" label="Description" value={newItemDesc} onChange={(e) => setNewItemDesc(e.target.value)} placeholder="e.g., Software subscription, or click AI idea" required /></div>
+                <div className="w-full sm:w-1/3 mb-2 sm:mb-0"><InputField name="expenseAmount" label="Amount (USDC)" type="number" value={newItemAmount} onChange={(e) => setNewItemAmount(e.target.value)} placeholder="e.g., 50" required step="0.01" /></div>
               </div>
-            </div>
+              <div className="flex space-x-2 mt-2">
+                <Button type="submit" primary icon={editingBudgetItemId ? Check : PlusCircle} className="w-full sm:w-auto px-4">
+                    {editingBudgetItemId ? 'Update Expense' : 'Add Expense'}
+                </Button>
+                {editingBudgetItemId && (
+                    <Button type="button" onClick={() => { setEditingBudgetItemId(null); setNewItemDesc(''); setNewItemAmount(''); setCurrentAiEstimateNotes('');}} className="w-full sm:w-auto px-4">Cancel Edit</Button>
+                )}
+              </div>
+            </form>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <Button variant="secondary" onClick={() => setScreen('Dashboard')}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} style={{ flex: 1 }}>
-                Create Support Page
-              </Button>
+            <div>
+              <h3 className="text-md font-semibold mb-2" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Planned Expenses:</h3>
+              {currentBudgetItems.length > 0 ? (<ul className="space-y-2">{currentBudgetItems.map(item => (<li key={item.id} className="flex justify-between items-center p-3 border rounded-md" style={{borderColor: C3_BORDER_LIGHT}}>
+                <div className="flex-1 min-w-0 mr-2"> 
+                    <p style={{color: C3_TEXT_PRIMARY_LIGHT}} className="truncate font-medium">{item.description}</p> 
+                    {item.aiEstimateNotes && <p className="text-xs italic" style={{color: C3_TEXT_SECONDARY_LIGHT}}>{item.aiEstimateNotes}</p>} 
+                    <p className="text-sm font-semibold" style={{color: C3_ACCENT_COLOR}}>$${parseFloat(item.amount || 0).toLocaleString()}</p>
+                </div>
+                <div className="flex-shrink-0 flex items-center space-x-1"> 
+                    <Button onClick={() => handleEditBudgetItem(item)} small icon={Edit} className="p-1.5 hover:bg-gray-100"/> 
+                    <Button onClick={() => removeBudgetItem(currentSupportPageForBudget.id, item.id)} small icon={Trash2} className="p-1.5 !border-red-300 !text-red-500 hover:!bg-red-50"/>
+                </div>
+                </li>))}</ul>) 
+              : (<p className="text-sm" style={{color: C3_TEXT_SECONDARY_LIGHT}}>No expenses added yet. Use the form above or let AI generate a draft.</p>)}
             </div>
-            
-            {/* AI Helper Note */}
-            <div style={{ 
-              backgroundColor: '#F0F9FF', border: '1px solid #8B5CF6', borderRadius: '8px', 
-              padding: '12px', marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' 
-            }}>
-              <Brain size={16} color="#8B5CF6" />
-              <p style={{ fontSize: '14px', color: '#8B5CF6', margin: 0 }}>
-                <strong>Pro Tip:</strong> After creating your page, visit Budget Planner to auto-generate a detailed budget breakdown for your project!
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+          </>
+        )}
+      </Card>
     </div>
   );
 };
 
-// --- Discovery Screen ---
-const DiscoveryScreen = () => {
-  const { setScreen, supportPages, supportPage, isPageSupportedByMe, toggleLike, getPageLikes, isPageLikedByUser, addComment, getPageComments, worldIdVerified } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeComments, setActiveComments] = useState({});
-  const [newComment, setNewComment] = useState('');
 
-  const supportPagesArray = Array.from(supportPages.values());
-  
-  const filteredPages = supportPagesArray.filter(page =>
-    page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    page.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    page.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+// Main App Component
+function App() {
+  const { screen, hasCompletedOnboarding } = useContext(AppContext); 
+  const { navigateTo } = useContext(AppContext); 
 
-  const handleSupport = (pageId) => {
-    const amount = 10;
-    supportPage(pageId, amount);
+  useEffect(() => {
+    if (!hasCompletedOnboarding) {
+      navigateTo('Onboarding');
+    } else if (screen === '') { 
+      navigateTo('DiscoveryScreen');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCompletedOnboarding]); 
+
+
+  const renderScreen = () => {
+    if (!hasCompletedOnboarding && screen !== 'Onboarding') { 
+        return <OnboardingScreen />;
+    }
+
+    switch (screen) {
+      case 'Onboarding': return <OnboardingScreen />; 
+      case 'CreatorSetup': return <CreatorSetupScreen />;
+      case 'PublicTokenPage': return <PublicTokenPage />;
+      case 'SupportVerificationFlow': return <SupportVerificationFlow />;
+      case 'SupportConfirmation': return <SupportConfirmationScreen />;
+      case 'CreatorDashboard': return <CreatorDashboard />;
+      case 'DiscoveryScreen': return <DiscoveryScreen />;
+      case 'AIGrantScout': return <AIGrantScoutScreen />;
+      case 'BudgetingScreen': return <BudgetingScreen />;
+      default: 
+        return hasCompletedOnboarding ? <DiscoveryScreen /> : <OnboardingScreen />; 
+    }
   };
-
   return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ backgroundColor: C3_CARD_BG_LIGHT, borderBottom: `1px solid ${C3_BORDER_LIGHT}`, padding: '16px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="secondary" onClick={() => setScreen('Dashboard')} size="sm" style={{ marginRight: '16px' }}>
-              <ChevronLeft size={16} /> Back
-            </Button>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <GradientSphereLogo size={24} />
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT }}>
-                Discover Creators
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        {/* Search */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ position: 'relative', maxWidth: '400px' }}>
-            <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: C3_TEXT_SECONDARY_LIGHT }} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search projects..."
-              style={{
-                width: '100%', padding: '12px 12px 12px 40px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                borderRadius: '8px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                color: C3_TEXT_PRIMARY_LIGHT
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Support Pages Grid */}
-        {filteredPages.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <Search size={48} color={C3_TEXT_SECONDARY_LIGHT} />
-            </div>
-            <h3 style={{ fontSize: '20px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-              No projects found
-            </h3>
-            <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              {searchTerm ? 'Try adjusting your search terms' : 'Be the first to create a support page!'}
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
-            {filteredPages.map(page => {
-              const progressPercentage = page.goal > 0 ? (page.amount / page.goal) * 100 : 0;
-              const isSupported = isPageSupportedByMe(page.id);
-              
-              return (
-                <div key={page.id} style={{ 
-                  backgroundColor: C3_CARD_BG_LIGHT, borderRadius: '16px', 
-                  border: `1px solid ${C3_BORDER_LIGHT}`, overflow: 'hidden' 
-                }}>
-                  {/* Project Image */}
-                  {page.image && (
-                    <div style={{ height: '160px', overflow: 'hidden' }}>
-                      <img src={page.image} alt={page.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  )}
-                  <div style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ 
-                          backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, 
-                          color: C3_ACCENT_COLOR, padding: '4px 8px', borderRadius: '6px', 
-                          fontSize: '12px', fontWeight: '500' 
-                        }}>
-                          {page.category}
-                        </span>
-                        {page.image && (
-                          <span style={{ 
-                            backgroundColor: '#F0F9FF', color: '#8B5CF6', 
-                            padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '500',
-                            display: 'flex', alignItems: 'center', gap: '4px'
-                          }}>
-                            <Brain size={10} /> AI Enhanced
-                          </span>
-                        )}
-                      </div>
-                      {isSupported && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: C3_SUCCESS_GREEN }}>
-                          <CheckCircle size={16} />
-                          <span style={{ fontSize: '12px', fontWeight: '500' }}>Supported</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-                      {page.title}
-                    </h3>
-                    
-                    <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px', lineHeight: '1.5' }}>
-                      {page.description.length > 120 ? `${page.description.substring(0, 120)}...` : page.description}
-                    </p>
-
-                    {/* Progress Bar */}
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                          ${page.amount.toFixed(2)} raised
-                        </span>
-                        <span style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                          ${page.goal.toFixed(2)} goal
-                        </span>
-                      </div>
-                      <div style={{ width: '100%', height: '8px', backgroundColor: C3_BORDER_LIGHT, borderRadius: '4px' }}>
-                        <div style={{ 
-                          width: `${Math.min(progressPercentage, 100)}%`, height: '100%', 
-                          backgroundColor: C3_SUCCESS_GREEN, borderRadius: '4px' 
-                        }} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                        <span style={{ fontSize: '12px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                          {page.supporters} supporters
-                        </span>
-                        <span style={{ fontSize: '12px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                          {progressPercentage.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Social Actions */}
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                      <button
-                        onClick={() => toggleLike(page.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
-                          color: isPageLikedByUser(page.id) ? '#EF4444' : C3_TEXT_SECONDARY_LIGHT,
-                          fontSize: '14px'
-                        }}
-                      >
-                        <Heart size={16} fill={isPageLikedByUser(page.id) ? '#EF4444' : 'none'} />
-                        {getPageLikes(page.id)}
-                      </button>
-                      
-                      <button
-                        onClick={() => setActiveComments(prev => ({ 
-                          ...prev, 
-                          [page.id]: !prev[page.id] 
-                        }))}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
-                          color: C3_TEXT_SECONDARY_LIGHT, fontSize: '14px'
-                        }}
-                      >
-                        <MessageCircle size={16} />
-                        {getPageComments(page.id).length}
-                      </button>
-                      
-                      {worldIdVerified && (
-                        <div style={{ 
-                          display: 'flex', alignItems: 'center', gap: '4px', 
-                          marginLeft: 'auto', fontSize: '12px', color: C3_SUCCESS_GREEN 
-                        }}>
-                          <ShieldCheck size={14} />
-                          Verified Creator
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Comments Section */}
-                    {activeComments[page.id] && (
-                      <div style={{ 
-                        backgroundColor: C3_LIGHT_BG, padding: '16px', borderRadius: '8px', 
-                        marginBottom: '16px', border: `1px solid ${C3_BORDER_LIGHT}` 
-                      }}>
-                        <div style={{ marginBottom: '12px' }}>
-                          <h4 style={{ fontSize: '14px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-                            Comments
-                          </h4>
-                          
-                          {getPageComments(page.id).length === 0 ? (
-                            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                              No comments yet. Be the first to comment!
-                            </p>
-                          ) : (
-                            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                              {getPageComments(page.id).map((comment, index) => (
-                                <div key={index} style={{ 
-                                  padding: '8px 0', borderBottom: index < getPageComments(page.id).length - 1 ? `1px solid ${C3_BORDER_LIGHT}` : 'none' 
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                                      Anonymous User
-                                    </span>
-                                    <ShieldCheck size={12} color={C3_SUCCESS_GREEN} />
-                                    <span style={{ fontSize: '10px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                                      {new Date(comment.timestamp).toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                  <p style={{ fontSize: '14px', color: C3_TEXT_PRIMARY_LIGHT }}>
-                                    {comment.text}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        {worldIdVerified ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                              type="text"
-                              value={newComment}
-                              onChange={(e) => setNewComment(e.target.value)}
-                              placeholder="Add a comment..."
-                              style={{
-                                flex: 1, padding: '8px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                                borderRadius: '6px', fontSize: '14px', backgroundColor: C3_CARD_BG_LIGHT,
-                                color: C3_TEXT_PRIMARY_LIGHT
-                              }}
-                            />
-                            <Button
-                              onClick={() => {
-                                if (newComment.trim()) {
-                                  addComment(page.id, newComment.trim());
-                                  setNewComment('');
-                                }
-                              }}
-                              size="sm"
-                              disabled={!newComment.trim()}
-                            >
-                              Post
-                            </Button>
-                          </div>
-                        ) : (
-                          <div style={{ 
-                            textAlign: 'center', padding: '12px', backgroundColor: C3_CARD_BG_LIGHT, 
-                            borderRadius: '6px', border: `1px dashed ${C3_BORDER_LIGHT}` 
-                          }}>
-                            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '8px' }}>
-                              Verify with World ID to comment
-                            </p>
-                            <Button size="sm" onClick={() => setScreen('WorldLanding')}>
-                              <ShieldCheck size={14} /> Verify Now
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <Button 
-                      onClick={() => handleSupport(page.id)}
-                      disabled={isSupported}
-                      style={{ width: '100%' }}
-                    >
-                      {isSupported ? (
-                        <>
-                          <CheckCircle size={16} /> Supported
-                        </>
-                      ) : (
-                        <>
-                          <Gift size={16} /> Support $10
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
+      {(hasCompletedOnboarding && screen !== 'Onboarding') && <Header />}
+      <main className="container mx-auto px-2 py-4 md:px-4 md:py-8">{renderScreen()}</main>
+      <ToastNotification />
     </div>
   );
-};
+}
 
-// --- Budgeting Screen ---
-const BudgetingScreen = () => {
-  const { setScreen, budgetItems, createBudgetItem, deleteBudgetItem, generateAIBudget, supportPages } = useApp();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showAIForm, setShowAIForm] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '', amount: '', category: 'Equipment', description: ''
-  });
-  const [aiFormData, setAiFormData] = useState({
-    description: '', goal: ''
-  });
-
-  const budgetItemsArray = Array.from(budgetItems.values());
-  const totalBudget = budgetItemsArray.reduce((sum, item) => sum + item.amount, 0);
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = () => {
-    if (!formData.name.trim() || !formData.amount) {
-      return;
-    }
-
-    const amount = parseFloat(formData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      return;
-    }
-
-    createBudgetItem({
-      ...formData,
-      amount,
-      createdAt: new Date().toISOString()
-    });
-
-    setFormData({ name: '', amount: '', category: 'Equipment', description: '' });
-    setShowAddForm(false);
-  };
-
-  const handleDelete = (itemId) => {
-    deleteBudgetItem(itemId);
-  };
-
-  const handleAIGenerate = async () => {
-    if (!aiFormData.description.trim() || !aiFormData.goal) return;
-    
-    setIsGenerating(true);
-    const success = await generateAIBudget(aiFormData.description, aiFormData.goal);
-    setIsGenerating(false);
-    
-    if (success) {
-      setShowAIForm(false);
-      setAiFormData({ description: '', goal: '' });
-    }
-  };
-
-  return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ backgroundColor: C3_CARD_BG_LIGHT, borderBottom: `1px solid ${C3_BORDER_LIGHT}`, padding: '16px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="secondary" onClick={() => setScreen('Dashboard')} size="sm" style={{ marginRight: '16px' }}>
-              <ChevronLeft size={16} /> Back
-            </Button>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <GradientSphereLogo size={24} />
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT }}>
-                Budget Planner
-              </h1>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <Button onClick={() => setShowAIForm(true)} style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}>
-              <Brain size={16} /> AI Generate
-            </Button>
-            <Button onClick={() => setShowAddForm(true)}>
-              <PlusCircle size={16} /> Add Item
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        {/* Summary Card */}
-        <div style={{ 
-          backgroundColor: C3_CARD_BG_LIGHT, padding: '32px', borderRadius: '16px', 
-          border: `1px solid ${C3_BORDER_LIGHT}`, marginBottom: '32px' 
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '500', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '8px' }}>
-              Total Budget
-            </h2>
-            <p style={{ fontSize: '40px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-              ${totalBudget.toFixed(2)}
-            </p>
-            <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-              {budgetItemsArray.length} items tracked
-            </p>
-          </div>
-        </div>
-
-        {/* AI Generate Form */}
-        {showAIForm && (
-          <div style={{ 
-            backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '16px', 
-            border: `1px solid #8B5CF6`, marginBottom: '32px' 
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
-              <Brain size={24} color="#8B5CF6" />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                AI Budget Generator
-              </h3>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-              <TextArea
-                label="Project Description"
-                value={aiFormData.description}
-                onChange={(value) => setAiFormData(prev => ({ ...prev, description: value }))}
-                placeholder="Describe your project (e.g., 'Creating an indie game about space exploration')"
-                rows={3}
-              />
-              
-              <Input
-                label="Target Budget"
-                value={aiFormData.goal}
-                onChange={(value) => setAiFormData(prev => ({ ...prev, goal: value }))}
-                placeholder="5000"
-                type="number"
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Button variant="secondary" onClick={() => setShowAIForm(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleAIGenerate}
-                disabled={isGenerating || !aiFormData.description.trim() || !aiFormData.goal}
-                style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}
-              >
-                {isGenerating ? <Sparkles size={16} /> : <Brain size={16} />}
-                {isGenerating ? 'Generating...' : 'Generate Budget'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Add Item Form */}
-        {showAddForm && (
-          <div style={{ 
-            backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '16px', 
-            border: `1px solid ${C3_BORDER_LIGHT}`, marginBottom: '32px' 
-          }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '20px' }}>
-              Add Budget Item
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-              <Input
-                label="Item Name"
-                value={formData.name}
-                onChange={(value) => handleInputChange('name', value)}
-                placeholder="e.g. Camera equipment"
-              />
-              
-              <Input
-                label="Amount"
-                value={formData.amount}
-                onChange={(value) => handleInputChange('amount', value)}
-                placeholder="0.00"
-                type="number"
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '20px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => handleInputChange('category', e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                    borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                    color: C3_TEXT_PRIMARY_LIGHT
-                  }}
-                >
-                  <option value="Equipment">Equipment</option>
-                  <option value="Software">Software</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Materials">Materials</option>
-                  <option value="Services">Services</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <TextArea
-                label="Description (Optional)"
-                value={formData.description}
-                onChange={(value) => handleInputChange('description', value)}
-                placeholder="Additional details about this expense"
-                rows={3}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Button variant="secondary" onClick={() => setShowAddForm(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit}>
-                Add Item
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Budget Items List */}
-        {budgetItemsArray.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <DollarSign size={48} color={C3_TEXT_SECONDARY_LIGHT} />
-            </div>
-            <h3 style={{ fontSize: '20px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-              No budget items yet
-            </h3>
-            <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '24px' }}>
-              Start planning your project budget by adding expense items
-            </p>
-            <Button onClick={() => setShowAddForm(true)}>
-              <PlusCircle size={16} /> Add First Item
-            </Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {budgetItemsArray.map(item => (
-              <div key={item.id} style={{ 
-                backgroundColor: C3_CARD_BG_LIGHT, padding: '20px', borderRadius: '12px', 
-                border: `1px solid ${C3_BORDER_LIGHT}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' 
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT }}>
-                      {item.name}
-                    </h3>
-                    <span style={{ 
-                      backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, 
-                      color: C3_ACCENT_COLOR, padding: '2px 8px', borderRadius: '4px', 
-                      fontSize: '12px', fontWeight: '500' 
-                    }}>
-                      {item.category}
-                    </span>
-                    {item.isAIGenerated && (
-                      <span style={{ 
-                        backgroundColor: '#F0F9FF', color: '#8B5CF6', 
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '500',
-                        display: 'flex', alignItems: 'center', gap: '4px'
-                      }}>
-                        <Brain size={10} /> AI
-                      </span>
-                    )}
-                  </div>
-                  {item.description && (
-                    <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '4px' }}>
-                      {item.description}
-                    </p>
-                  )}
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT }}>
-                    ${item.amount.toFixed(2)}
-                  </span>
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={() => handleDelete(item.id)}
-                    style={{ color: C3_ERROR_RED, borderColor: C3_ERROR_RED }}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- Grant Scout Screen ---
-const GrantScoutScreen = () => {
-  const { setScreen, grants, generateGrantIdeas } = useApp();
-  const [showSearchForm, setShowSearchForm] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchData, setSearchData] = useState({
-    description: '', category: 'Art'
-  });
-
-  const grantsArray = Array.from(grants.values());
-
-  const handleSearch = async () => {
-    if (!searchData.description.trim()) return;
-    
-    setIsSearching(true);
-    const success = await generateGrantIdeas(searchData.description, searchData.category);
-    setIsSearching(false);
-    
-    if (success) {
-      setShowSearchForm(false);
-    }
-  };
-
-  return (
-    <div style={{ backgroundColor: C3_LIGHT_BG, minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ backgroundColor: C3_CARD_BG_LIGHT, borderBottom: `1px solid ${C3_BORDER_LIGHT}`, padding: '16px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Button variant="secondary" onClick={() => setScreen('Dashboard')} size="sm" style={{ marginRight: '16px' }}>
-              <ChevronLeft size={16} /> Back
-            </Button>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <GradientSphereLogo size={24} />
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT }}>
-                Grant Scout
-              </h1>
-            </div>
-          </div>
-          <Button onClick={() => setShowSearchForm(true)} style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}>
-            <Brain size={16} /> Find Grants
-          </Button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-            <Award size={48} color="#8B5CF6" />
-          </div>
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-            AI-Powered Grant Discovery
-          </h2>
-          <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT, maxWidth: '600px', margin: '0 auto' }}>
-            Discover funding opportunities tailored to your projects using advanced AI analysis
-          </p>
-        </div>
-
-        {/* Search Form */}
-        {showSearchForm && (
-          <div style={{ 
-            backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '16px', 
-            border: `1px solid #8B5CF6`, marginBottom: '32px' 
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
-              <Brain size={24} color="#8B5CF6" />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginLeft: '8px' }}>
-                Describe Your Project
-              </h3>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-              <TextArea
-                label="Project Description"
-                value={searchData.description}
-                onChange={(value) => setSearchData(prev => ({ ...prev, description: value }))}
-                placeholder="Describe your project in detail (e.g., 'Developing an educational app for children with learning disabilities')"
-                rows={4}
-              />
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT }}>
-                  Category
-                </label>
-                <select
-                  value={searchData.category}
-                  onChange={(e) => setSearchData(prev => ({ ...prev, category: e.target.value }))}
-                  style={{
-                    width: '100%', padding: '10px 12px', border: `1px solid ${C3_BORDER_LIGHT}`,
-                    borderRadius: '6px', fontSize: '16px', backgroundColor: C3_CARD_BG_LIGHT,
-                    color: C3_TEXT_PRIMARY_LIGHT
-                  }}
-                >
-                  <option value="Art">Art</option>
-                  <option value="Music">Music</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Film">Film</option>
-                  <option value="Writing">Writing</option>
-                  <option value="Games">Games</option>
-                  <option value="Education">Education</option>
-                  <option value="Health">Health</option>
-                  <option value="Environment">Environment</option>
-                  <option value="Social Impact">Social Impact</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <Button variant="secondary" onClick={() => setShowSearchForm(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSearch}
-                disabled={isSearching || !searchData.description.trim()}
-                style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}
-              >
-                {isSearching ? <Sparkles size={16} /> : <Search size={16} />}
-                {isSearching ? 'Searching...' : 'Find Grants'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Grants List */}
-        {grantsArray.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <Award size={48} color={C3_TEXT_SECONDARY_LIGHT} />
-            </div>
-            <h3 style={{ fontSize: '20px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '8px' }}>
-              No grants found yet
-            </h3>
-            <p style={{ fontSize: '16px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '24px' }}>
-              Use AI to discover funding opportunities for your projects
-            </p>
-            <Button onClick={() => setShowSearchForm(true)} style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}>
-              <Brain size={16} /> Start Grant Search
-            </Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ fontSize: '20px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT }}>
-                Grant Opportunities ({grantsArray.length})
-              </h3>
-            </div>
-            
-            {grantsArray.map(grant => (
-              <div key={grant.id} style={{ 
-                backgroundColor: C3_CARD_BG_LIGHT, padding: '24px', borderRadius: '16px', 
-                border: `1px solid ${C3_BORDER_LIGHT}`
-              }}>
-                <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ fontSize: '18px', fontWeight: '600', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-                      {grant.name}
-                    </h4>
-                    <p style={{ fontSize: '14px', color: '#8B5CF6', fontWeight: '500', marginBottom: '8px' }}>
-                      {grant.organization}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ 
-                      backgroundColor: '#F0FDF4', color: '#15803D', 
-                      padding: '4px 12px', borderRadius: '6px', fontSize: '14px', fontWeight: '500' 
-                    }}>
-                      {grant.amount}
-                    </span>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT, marginBottom: '16px', lineHeight: '1.5' }}>
-                  {grant.description}
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <p style={{ fontSize: '12px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-                      DEADLINE
-                    </p>
-                    <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                      {grant.deadline}
-                    </p>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '12px', fontWeight: '500', color: C3_TEXT_PRIMARY_LIGHT, marginBottom: '4px' }}>
-                      ELIGIBILITY
-                    </p>
-                    <p style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                      {grant.eligibility}
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '14px', color: C3_TEXT_SECONDARY_LIGHT }}>
-                    {grant.website}
-                  </span>
-                  <Button variant="outline" size="sm">
-                    <FileText size={14} /> Learn More
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- Main App Component ---
-const App = () => {
-  return (
-    <AppProvider>
-      <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-        <AppContent />
-        <Toast />
-      </div>
-    </AppProvider>
-  );
-};
-
-const AppContent = () => {
-  const { screen, worldIdVerified } = useApp();
-
-  // If not verified with World ID, show landing
-  if (!worldIdVerified) {
-    return <WorldLandingScreen />;
-  }
-
-  // Once verified, show the appropriate screen
-  switch (screen) {
-    case 'Dashboard':
-      return <DashboardScreen />;
-    case 'CreateSupportPage':
-      return <CreateSupportPageScreen />;
-    case 'Discovery':
-      return <DiscoveryScreen />;
-    case 'Budgeting':
-      return <BudgetingScreen />;
-    case 'GrantScout':
-      return <GrantScoutScreen />;
-    case 'WorldLanding':
-      return <WorldLandingScreen />;
-    default:
-      return <DashboardScreen />;
-  }
-};
-
-export default App;
+export default function ProvidedApp() {
+  return ( <AppProvider><App /></AppProvider> );
+}
+```
