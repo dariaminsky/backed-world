@@ -2104,7 +2104,7 @@ const GrantScoutScreen = () => {
               </h1>
             </div>
           </div>
-          <Button onClick={() => setShowSearchForm(true)} style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}>
+          <Button onClick={() => setShowSearchForm(true)}>
             <Brain size={16} /> Find Grants
           </Button>
         </div>
