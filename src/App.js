@@ -1449,7 +1449,7 @@ function App() {
   return (
     <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
       <style jsx global>{\`
-        body { font-family: "Inter", sans-serif; background-color: ${C3_LIGHT_BG}; }
+        body { background-color: ${C3_LIGHT_BG}; }
         @keyframes slide-in-down { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .animate-slide-in-down { animation: slide-in-down 0.5s ease-out forwards; }
       \`}</style>
