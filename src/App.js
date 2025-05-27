@@ -1448,11 +1448,13 @@ function App() {
   };
   return (
     <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
+      {/*
       <style jsx global>{\`
         body { background-color: ${C3_LIGHT_BG}; }
         @keyframes slide-in-down { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .animate-slide-in-down { animation: slide-in-down 0.5s ease-out forwards; }
       \`}</style>
+      */}
       <Header />
       <main className="container mx-auto px-2 py-4 md:px-4 md:py-8">{renderScreen()}</main>
       <ToastNotification />
