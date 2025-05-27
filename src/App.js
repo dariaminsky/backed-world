@@ -1,14 +1,14 @@
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo } from 'react';
 import { Share2, Copy, CheckCircle, XCircle, Gift, Users, TrendingUp, Lightbulb, DollarSign, ExternalLink, Info, Check, Globe, Rocket, PartyPopper, Search, Eye, Edit3, ChevronLeft, PlusCircle, Trash2, Send, Brain, Sparkles, RefreshCw, Zap, Edit, Image as ImageIcon, UserCircle, Palette, UploadCloud } from 'lucide-react';
 
-// Backed App: Style constants remain largely the same
+// Style constants
 const C3_PRIMARY_BLACK = '#000000';
 const C3_LIGHT_BG = '#F9FAFB'; 
 const C3_CARD_BG_LIGHT = '#FFFFFF';
 const C3_TEXT_PRIMARY_LIGHT = '#111827'; 
 const C3_TEXT_SECONDARY_LIGHT = '#6B7280';
 const C3_BORDER_LIGHT = '#E5E7EB'; 
-const C3_LOGO_HIGHLIGHT = '#22D3EE'; // Keeping logo colors for now, can be updated if "Backed" has new branding
+const C3_LOGO_HIGHLIGHT = '#22D3EE';
 const C3_LOGO_MID = '#00A9E0';
 const C3_LOGO_BASE = '#3B82F6';
 const C3_ACCENT_COLOR = C3_LOGO_MID;
@@ -16,12 +16,14 @@ const C3_ACCENT_BACKGROUND_ALPHA = '33';
 const C3_ERROR_RED = '#EF4444';
 const C3_SUCCESS_GREEN = '#10B981';
 
-// LocalStorage Keys - Prefixed with "backed"
+// LocalStorage Keys
 const LOCALSTORAGE_PAGES_KEY = 'backedSupportPages'; 
 const LOCALSTORAGE_SUPPORTED_KEY = 'backedSupportedPages';
 const LOCALSTORAGE_CREATOR_VERIFIED_KEY = 'backedCreatorVerified'; 
 const LOCALSTORAGE_BUDGET_ITEMS_KEY = 'backedBudgetItems';
 const LOCALSTORAGE_AI_BUDGET_GENERATED_KEY = 'backedAIBudgetGenerated';
+// FIX: Re-affirming definition of the constant that caused the ReferenceError
+const LOCALSTORAGE_ONBOARDING_COMPLETE_KEY = 'backedOnboardingComplete';
 
 
 // --- App Context for State Management ---
@@ -43,7 +45,7 @@ const throttle = (func, delay) => {
 
 
 const AppProvider = ({ children }) => {
-  const [screen, setScreen] = useState('CreatorSetup');
+  const [screen, setScreen] = useState(''); 
   const [activeSupportPageId, setActiveSupportPageId] = useState(null); 
   const [isCreatorVerified, setIsCreatorVerified] = useState(() => {
     try {
@@ -80,11 +82,21 @@ const AppProvider = ({ children }) => {
 
   const [toast, setToast] = useState(null);
 
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
+    try {
+      // FIX: Ensuring LOCALSTORAGE_ONBOARDING_COMPLETE_KEY is used correctly
+      const storedOnboarding = localStorage.getItem(LOCALSTORAGE_ONBOARDING_COMPLETE_KEY);
+      return storedOnboarding ? JSON.parse(storedOnboarding) : false;
+    } catch (error) { console.error("Error loading onboarding status:", error); return false; }
+  });
+
   const throttledSetSupportPages = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_PAGES_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
   const throttledSetSupported = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_SUPPORTED_KEY, JSON.stringify(Array.from(value))), 500), []);
   const throttledSetCreatorVerified = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_CREATOR_VERIFIED_KEY, JSON.stringify(value)), 500), []);
   const throttledSetBudgetItems = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_BUDGET_ITEMS_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
   const throttledSetAIBudgetGenerated = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_AI_BUDGET_GENERATED_KEY, JSON.stringify(Array.from(value.entries()))), 500), []);
+  // FIX: Ensuring LOCALSTORAGE_ONBOARDING_COMPLETE_KEY is used correctly
+  const throttledSetOnboardingComplete = useCallback(throttle((value) => localStorage.setItem(LOCALSTORAGE_ONBOARDING_COMPLETE_KEY, JSON.stringify(value)), 500), []);
 
 
   useEffect(() => { throttledSetSupportPages(supportPages); }, [supportPages, throttledSetSupportPages]);
@@ -92,6 +104,16 @@ const AppProvider = ({ children }) => {
   useEffect(() => { throttledSetCreatorVerified(isCreatorVerified); }, [isCreatorVerified, throttledSetCreatorVerified]);
   useEffect(() => { throttledSetBudgetItems(budgetItems); }, [budgetItems, throttledSetBudgetItems]);
   useEffect(() => { throttledSetAIBudgetGenerated(aiBudgetGeneratedForToken); }, [aiBudgetGeneratedForToken, throttledSetAIBudgetGenerated]);
+  useEffect(() => { throttledSetOnboardingComplete(hasCompletedOnboarding); }, [hasCompletedOnboarding, throttledSetOnboardingComplete]);
+
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding) {
+      setScreen('Onboarding');
+    } else if (!screen) { 
+      setScreen('DiscoveryScreen'); 
+    }
+  }, [hasCompletedOnboarding, screen]);
 
 
   const showToast = useCallback((message, type = 'info') => {
@@ -104,6 +126,10 @@ const AppProvider = ({ children }) => {
     if (pageId !== undefined) { 
         setActiveSupportPageId(pageId);
     }
+  }, []);
+
+  const completeOnboarding = useCallback(() => {
+    setHasCompletedOnboarding(true);
   }, []);
 
   const toggleCreatorVerified = useCallback(() => {
@@ -208,15 +234,15 @@ const AppProvider = ({ children }) => {
 
   const contextValue = useMemo(() => ({
     screen, activeSupportPageId, supportPages, supportedByMe, toast, isCreatorVerified,
-    budgetItems, aiBudgetGeneratedForToken,
+    budgetItems, aiBudgetGeneratedForToken, hasCompletedOnboarding, 
     navigateTo, showToast, createSupportPage, supportPageAction, copyToClipboard,
-    toggleCreatorVerified,
+    toggleCreatorVerified, completeOnboarding, 
     addOrUpdateBudgetItem, removeBudgetItem, setInitialBudgetForToken
   }), [
     screen, activeSupportPageId, supportPages, supportedByMe, toast, isCreatorVerified, 
-    budgetItems, aiBudgetGeneratedForToken, 
+    budgetItems, aiBudgetGeneratedForToken, hasCompletedOnboarding, 
     navigateTo, showToast, createSupportPage, supportPageAction, copyToClipboard,
-    toggleCreatorVerified,
+    toggleCreatorVerified, completeOnboarding, 
     addOrUpdateBudgetItem, removeBudgetItem, setInitialBudgetForToken
   ]);
 
@@ -224,6 +250,8 @@ const AppProvider = ({ children }) => {
 };
 
 // --- UI Components ---
+// ... (Rest of the components are assumed to be correct and are omitted for brevity)
+// ... (The fix was primarily about ensuring the constant was correctly in scope/defined)
 const ToastNotification = ({ /* ... */ }) => {
   const { toast } = useContext(AppContext);
   if (!toast) return null;
@@ -243,25 +271,26 @@ const ToastNotification = ({ /* ... */ }) => {
   );
 };
 
-const GradientSphereLogo = ({ size = 28 }) => (
+const GradientSphereLogo = ({ size = 28, className = "" }) => ( 
   <div
     style={{
       width: size, height: size, borderRadius: '50%',
       background: `radial-gradient(circle at 30% 25%, ${C3_LOGO_HIGHLIGHT} 0%, ${C3_LOGO_MID} 35%, ${C3_LOGO_BASE} 80%)`,
       boxShadow: '0 2px 4px rgba(0,0,0,0.06), inset 0 1px 1px rgba(255,255,255,0.15)', 
     }}
-    className="mr-2"
+    className={`mr-2 ${className}`} 
   />
 );
 
 const Header = () => {
-  const { navigateTo, screen } = useContext(AppContext);
+  const { navigateTo, screen, hasCompletedOnboarding } = useContext(AppContext); 
+  if (screen === 'Onboarding' || !hasCompletedOnboarding) return null; 
+
   return (
     <header className={`p-4 border-b`} style={{ backgroundColor: C3_PRIMARY_BLACK, borderColor: '#333' }}>
       <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center cursor-pointer" onClick={() => navigateTo('CreatorSetup')}>
+        <div className="flex items-center cursor-pointer" onClick={() => navigateTo('DiscoveryScreen')}> 
           <GradientSphereLogo />
-          {/* App Name Update */}
           <h1 className={`text-xl font-semibold text-white`}>Backed</h1>
         </div>
         <nav className="flex items-center space-x-2">
@@ -295,7 +324,7 @@ const ProgressBar = ({ current, total, label, small = false }) => {
       </div>
       {!small && total > 0 && ( 
           <p className={`text-xs mt-1 text-right`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
-            ${current.toLocaleString()} / ${total.toLocaleString()} USDC
+            $${current.toLocaleString()} / $${total.toLocaleString()} USDC
           </p>
       )}
     </div>
@@ -347,10 +376,10 @@ const InputField = ({ label, type = 'text', value, onChange, placeholder, name, 
 const Button = ({ onClick, children, primary = false, className = '', type = 'button', disabled = false, icon: IconComponent, small = false }) => (
   <button
     type={type} onClick={onClick} disabled={disabled}
-    className={`font-medium shadow-sm transition-opacity duration-200 flex items-center justify-center ${primary ? `text-white` : `border`} ${disabled ? 'opacity-50 cursor-not-allowed' : `hover:opacity-90`} ${small ? 'py-1 px-2 text-xs rounded' : 'w-full py-2.5 px-4 rounded-md text-sm'} ${className}`} 
+    className={`font-medium shadow-sm transition-opacity duration-200 flex items-center justify-center ${primary ? `text-white` : `border`} ${disabled ? 'opacity-50 cursor-not-allowed' : `hover:opacity-90`} ${small ? 'py-1.5 px-3 text-xs rounded-md' : 'w-full py-2.5 px-4 rounded-md text-sm'} ${className}`} 
     style={{ backgroundColor: primary ? C3_PRIMARY_BLACK : 'transparent', color: primary ? (disabled ? C3_TEXT_SECONDARY_LIGHT : 'white') : C3_ACCENT_COLOR, borderColor: primary ? 'transparent' : C3_BORDER_LIGHT }} 
   >
-    {IconComponent && <IconComponent size={small ? 12 : 16} className="mr-1.5" />} 
+    {IconComponent && <IconComponent size={small ? 14 : 16} className="mr-1.5" />} 
     {children}
   </button>
 );
@@ -366,7 +395,40 @@ const Card = ({ children, className = "", ...rest }) => (
 );
 
 // --- Screen Components ---
-const CreatorSetupScreen = () => {
+const OnboardingScreen = () => {
+    const { navigateTo, completeOnboarding } = useContext(AppContext);
+
+    const handleNavigate = (screen) => {
+        completeOnboarding();
+        navigateTo(screen);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center" style={{ backgroundColor: C3_LIGHT_BG }}>
+            <GradientSphereLogo size={64} className="mb-6" />
+            <h1 className="text-4xl font-bold mb-3" style={{ color: C3_TEXT_PRIMARY_LIGHT }}>
+                Welcome to <span className="hero-gradient-text">Backed</span>!
+            </h1>
+            <p className="text-lg mb-8 max-w-md" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+                The simple, secure way to support creators directly using World ID and on-chain contributions.
+            </p>
+            <div className="space-y-4 w-full max-w-xs">
+                <Button onClick={() => handleNavigate('CreatorSetup')} primary icon={Edit3}>
+                    I'm a Creator (Create Support Page)
+                </Button>
+                <Button onClick={() => handleNavigate('DiscoveryScreen')} icon={Search}>
+                    I want to Support (Discover Creators)
+                </Button>
+            </div>
+            <p className="text-xs mt-12" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
+                Empowering verified human creativity, resiliently.
+            </p>
+        </div>
+    );
+};
+
+
+const CreatorSetupScreen = ({ /* ... */ }) => {
   const { createSupportPage, showToast, isCreatorVerified, toggleCreatorVerified } = useContext(AppContext);
   const [formData, setFormData] = useState({ 
     creatorName: '', tokenName: '', price: '', goal: '', description: '', utility: '',
@@ -384,14 +446,14 @@ const CreatorSetupScreen = () => {
   const [isGeneratingProjectImage, setIsGeneratingProjectImage] = useState(false);
 
   useEffect(() => {
-    if (formData.creatorName.trim() && !generatedAvatarData && !isGeneratingAvatar) {
+    if (formData.creatorName.trim().length > 2 && !generatedAvatarData && !isGeneratingAvatar) { 
       handleGenerateAvatar(true); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.creatorName]); 
 
   useEffect(() => {
-    if (formData.tokenName.trim() && !generatedProjectImageData && !isGeneratingProjectImage) {
+    if (formData.tokenName.trim().length > 2 && !generatedProjectImageData && !isGeneratingProjectImage) {
       handleGenerateProjectImage(true); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -443,10 +505,11 @@ const CreatorSetupScreen = () => {
   const callImagenAPI = async (prompt, setImageDataState, setLoadingState, imageTypeForToast, isAuto = false) => {
     setLoadingState(true);
     if (!isAuto) setImageDataState(null); 
-    if (!isAuto) showToast(`✨ AI is generating ${imageTypeForToast}...`, "info");
+    if (!isAuto || (isAuto && !imageTypeForToast.includes("retry"))) showToast(`✨ AI is generating ${imageTypeForToast}...`, "info");
+
 
     const payload = { instances: [{ prompt: prompt }], parameters: { "sampleCount": 1 } };
-    const apiKey = process.env.REACT_APP_GOOGLE_AI_API_KEY; 
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
 
     try {
@@ -480,7 +543,7 @@ const CreatorSetupScreen = () => {
       return;
     }
     const prompt = `8-bit pixel art style avatar for a web3 creator named "${formData.creatorName || 'Creator'}". Simple, clean, modern, suitable for a small profile picture. Vibrant colors.`;
-    callImagenAPI(prompt, setGeneratedAvatarData, setIsGeneratingAvatar, "avatar", isAuto);
+    callImagenAPI(prompt, setGeneratedAvatarData, setIsGeneratingAvatar, isAuto ? "avatar (auto)" : "avatar", isAuto);
   };
 
   const handleGenerateProjectImage = (isAuto = false) => {
@@ -488,8 +551,8 @@ const CreatorSetupScreen = () => {
       showToast("Please enter Support Page Name first.", "error");
       return;
     }
-    const prompt = `8-bit pixel art style abstract banner image representing a creative project or support campaign called "${formData.tokenName || 'My Project'}". Modern, clean, optimistic, with subtle digital or network motifs. Suitable for a webpage banner. Tech-inspired.`;
-    callImagenAPI(prompt, setGeneratedProjectImageData, setIsGeneratingProjectImage, "project image", isAuto);
+    const prompt = `8-bit pixel art style abstract banner image representing a creative project or support campaign called "${formData.tokenName || 'My Project'}". Modern, clean, optimistic, with subtle digital or network motifs. Suitable for a webpage banner (wide aspect ratio). Tech-inspired.`;
+    callImagenAPI(prompt, setGeneratedProjectImageData, setIsGeneratingProjectImage, isAuto ? "project image (auto)" : "project image", isAuto);
   };
 
 
@@ -513,7 +576,7 @@ const CreatorSetupScreen = () => {
         }
       }
     };
-    const apiKey = process.env.REACT_APP_GOOGLE_AI_API_KEY; 
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     try {
@@ -587,34 +650,38 @@ const CreatorSetupScreen = () => {
     <div className="max-w-md mx-auto p-4">
       <h2 className={`text-2xl font-semibold mb-6 text-center`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Create Your Support Page</h2>
       <Card>
-        <form onSubmit={handleSubmit} className="space-y-3"> 
+        <form onSubmit={handleSubmit} className="space-y-4"> 
           <InputField name="creatorName" label="Creator Name" value={formData.creatorName} onChange={handleChange} placeholder="Your name or alias" required error={errors.creatorName} />
-          <div className="mb-2 flex items-center space-x-2">
-            {generatedAvatarData ? (
-              <img src={generatedAvatarData} alt="Creator Avatar" className="w-16 h-16 rounded-full object-cover border" />
-            ) : isGeneratingAvatar ? (
-              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">Generating...</div>
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center"><UserCircle size={32} className="text-gray-400"/></div>
-            )}
-            <div className="flex flex-col space-y-1">
-                <Button onClick={() => handleGenerateAvatar(false)} disabled={isGeneratingAvatar || !formData.creatorName.trim()} small icon={RefreshCw} className="w-auto">Regenerate Avatar</Button>
-                <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto">Upload Avatar</Button>
+          <div className="mb-2 p-3 border rounded-md" style={{borderColor: C3_BORDER_LIGHT}}>
+            <label className="block text-xs font-medium mb-1.5" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Creator Avatar</label>
+            <div className="flex items-center space-x-3">
+                {generatedAvatarData ? (
+                <img src={generatedAvatarData} alt="Creator Avatar" className="w-16 h-16 rounded-full object-cover border" />
+                ) : isGeneratingAvatar ? (
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse">Generating...</div>
+                ) : (
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center"><UserCircle size={32} className="text-gray-300"/></div>
+                )}
+                <div className="flex flex-col space-y-1.5">
+                    <Button onClick={() => handleGenerateAvatar(false)} disabled={isGeneratingAvatar || !formData.creatorName.trim()} small icon={RefreshCw} className="w-auto text-xs">Regenerate ✨</Button>
+                    <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto text-xs">Upload</Button>
+                </div>
             </div>
           </div>
 
           <InputField name="tokenName" label="Support Page Name" value={formData.tokenName} onChange={handleChange} placeholder="e.g., My Art Fund" required error={errors.tokenName} />
-           <div className="mb-2">
+           <div className="mb-2 p-3 border rounded-md" style={{borderColor: C3_BORDER_LIGHT}}>
+            <label className="block text-xs font-medium mb-1.5" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Project Image / Banner</label>
             {generatedProjectImageData ? (
                  <img src={generatedProjectImageData} alt="Project Banner" className="w-full h-32 object-cover rounded-md border" />
             ) : isGeneratingProjectImage ? (
-                <div className="w-full h-32 rounded-md bg-gray-200 flex items-center justify-center text-xs text-gray-500">Generating Project Image...</div>
+                <div className="w-full h-32 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse">Generating Image...</div>
             ): (
-                <div className="w-full h-32 rounded-md bg-gray-200 flex items-center justify-center"><ImageIcon size={32} className="text-gray-400"/></div>
+                <div className="w-full h-32 rounded-md bg-gray-100 flex items-center justify-center"><ImageIcon size={32} className="text-gray-300"/></div>
             )}
-            <div className="flex space-x-2 mt-1">
-                <Button onClick={() => handleGenerateProjectImage(false)} disabled={isGeneratingProjectImage || !formData.tokenName.trim()} small icon={RefreshCw} className="w-auto">Regenerate Image</Button>
-                <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto">Upload Image</Button>
+            <div className="flex space-x-2 mt-1.5">
+                <Button onClick={() => handleGenerateProjectImage(false)} disabled={isGeneratingProjectImage || !formData.tokenName.trim()} small icon={RefreshCw} className="w-auto text-xs">Regenerate ✨</Button>
+                <Button onClick={() => showToast("Upload functionality coming soon!", "info")} small icon={UploadCloud} className="w-auto text-xs">Upload</Button>
             </div>
           </div>
           <InputField name="price" label="Set Contribution Amount (USDC)" type="number" value={formData.price} onChange={handleChange} placeholder="e.g., 5" required step="0.01" error={errors.price} />
@@ -654,29 +721,28 @@ const CreatorSetupScreen = () => {
   );
 };
 
-// ... (PublicTokenPage, SupportVerificationFlow, SupportConfirmationScreen, CreatorDashboard, DiscoveryScreen, TokenCard, AIGrantScoutScreen, BudgetingScreen)
-// These will be updated to use `page.creatorAvatarData` and `page.projectImageData` (base64 strings)
-// and reflect other terminology changes.
-
 const PublicTokenPage = ({ /* ... */ }) => {
   const { supportPages, activeSupportPageId, navigateTo, copyToClipboard, showToast } = useContext(AppContext);
   const page = activeSupportPageId ? supportPages.get(activeSupportPageId) : null; 
   const [showMatchingInfo, setShowMatchingInfo] = useState(false);
 
   useEffect(() => {
-    if (!activeSupportPageId) navigateTo('DiscoveryScreen'); 
-    else if (activeSupportPageId && !supportPages.has(activeSupportPageId)) { 
+    if (!activeSupportPageId) {
+        navigateTo('DiscoveryScreen'); 
+    } else if (activeSupportPageId && !supportPages.has(activeSupportPageId)) { 
         showToast("Support Page not found.", "error");
         navigateTo('DiscoveryScreen');
     }
   }, [page, activeSupportPageId, navigateTo, showToast, supportPages]);
 
-  if (!page) return ( 
-    <div className="p-4 text-center" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
-      Loading support page details...
-      <Button onClick={() => navigateTo('DiscoveryScreen')} className="mt-4" icon={Search}>Go to Discovery</Button>
-    </div>
-  );
+  if (!page) { // FIX: Ensure this conditional return is correctly structured
+    return ( 
+      <div className="p-4 text-center" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
+        Loading support page details...
+        <Button onClick={() => navigateTo('DiscoveryScreen')} className="mt-4" icon={Search}>Go to Discovery</Button>
+      </div>
+    );
+  }
 
   const shareLink = () => { 
     const link = `https://yourapp.com/page/${page.id}`;
@@ -720,7 +786,6 @@ const PublicTokenPage = ({ /* ... */ }) => {
             </button>
         </div>
         <div className="mb-4">
-          {/* v5 update: "Contribution Amount" terminology */}
           <p className={`text-xl md:text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>{page.price.toLocaleString()} USDC <span className={`text-sm font-normal`} style={{color: C3_TEXT_SECONDARY_LIGHT}}>/ contribution</span></p>
         </div>
 
@@ -747,10 +812,9 @@ const PublicTokenPage = ({ /* ... */ }) => {
 
         <div className="flex justify-between items-center mb-6 text-sm" style={{ color: C3_TEXT_SECONDARY_LIGHT }}>
           <div className="flex items-center"><Users size={16} className="mr-1.5" />{page.supporters} Supporters</div>
-          {page.raised > 0 && (<div className="flex items-center"><TrendingUp size={16} className="mr-1.5" />${page.raised.toLocaleString()} Raised</div>)}
+          {page.raised > 0 && (<div className="flex items-center"><TrendingUp size={16} className="mr-1.5" />$${page.raised.toLocaleString()} Raised</div>)}
         </div>
 
-        {/* v5 update: Matching Funds Info Box Updated */}
         <div className="mb-6 p-4 rounded-md bg-sky-50 border border-sky-200">
             <div className="flex justify-between items-center">
                  <p className="text-sm font-medium text-sky-700">
@@ -780,6 +844,9 @@ const PublicTokenPage = ({ /* ... */ }) => {
     </div>
   );
 };
+
+// ... (Rest of the components: SupportVerificationFlow, SupportConfirmationScreen, CreatorDashboard, DiscoveryScreen, TokenCard, AIGrantScoutScreen, BudgetingScreen)
+// ... (They should be largely the same as the previous version, with minor terminology updates if necessary)
 
 const SupportVerificationFlow = ({ /* ... */ }) => {
   const { activeSupportPageId, supportPages, supportPageAction, supportedByMe, navigateTo, showToast } = useContext(AppContext); 
@@ -843,10 +910,10 @@ const SupportVerificationFlow = ({ /* ... */ }) => {
             <Card className="w-full max-w-sm">
                 <h3 className="text-lg font-semibold mb-3 text-center" style={{color: C3_TEXT_PRIMARY_LIGHT}}>Confirm Your Support</h3>
                 <div className="space-y-1 text-sm mb-4">
-                    <div className="flex justify-between"><span>Contribution Amount:</span> <span>${supportPrice.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span>Platform Fee (1%):</span> <span>${platformFee.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Contribution Amount:</span> <span>$${supportPrice.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Platform Fee (1%):</span> <span>$${platformFee.toFixed(2)}</span></div>
                     <hr className="my-1 border-gray-200"/>
-                    <div className="flex justify-between font-semibold"><span>Total Charged:</span> <span>${totalCharged.toFixed(2)}</span></div>
+                    <div className="flex justify-between font-semibold"><span>Total Charged:</span> <span>$${totalCharged.toFixed(2)}</span></div>
                 </div>
                 <p className="text-xs text-center mb-4" style={{color: C3_TEXT_SECONDARY_LIGHT}}>
                     This is a simulated transaction.
@@ -898,8 +965,8 @@ const SupportConfirmationScreen = ({ /* ... */ }) => {
         <p className={`mb-6`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Thank you for empowering creators.</p>
         <div className={`p-4 rounded-md mb-6 border`} style={{ backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_ACCENT_COLOR }}>
           <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Total Raised for {page.tokenName}:</p>
-          <p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>${page.raised.toLocaleString()} USDC</p>
-          {matchingBonus > 0 && <p className={`text-sm mt-1`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Includes +${matchingBonus.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} matching bonus (simulated)</p>}
+          <p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>$${page.raised.toLocaleString()} USDC</p>
+          {matchingBonus > 0 && <p className={`text-sm mt-1`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Includes +$${matchingBonus.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} matching bonus (simulated)</p>}
           <p className="text-xs text-gray-500 mt-2">
             Funds arrive instantly in the creator’s World App wallet and can be spent
             with the Worldcoin Card (simulation).
@@ -957,7 +1024,7 @@ const CreatorDashboard = ({ /* ... */ }) => {
             <h3 className={`text-xl font-semibold mb-1`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>{pageToDisplayDetails.tokenName} - Quick Stats</h3>
              <button onClick={() => sharePageLink(pageToDisplayDetails.id)} className={`text-xs flex items-center mt-1 mb-3 hover:opacity-75 font-medium`} style={{color: C3_ACCENT_COLOR}}><Copy size={12} className="mr-1" /> Copy Link</button>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={`p-3 rounded-md border`} style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}><p className={`text-xs`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Total Raised</p><p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>${pageToDisplayDetails.raised.toLocaleString()}</p></div>
+              <div className={`p-3 rounded-md border`} style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}><p className={`text-xs`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Total Raised</p><p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>$${pageToDisplayDetails.raised.toLocaleString()}</p></div>
               <div className={`p-3 rounded-md border`} style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}><p className={`text-xs`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Supporters</p><p className={`text-2xl font-semibold`} style={{ color: C3_ACCENT_COLOR }}>{pageToDisplayDetails.supporters.toLocaleString()}</p></div>
             </div>
             {pageToDisplayDetails.goal > 0 && (<div className="mt-4"><ProgressBar current={pageToDisplayDetails.raised} total={pageToDisplayDetails.goal} label="Progress Toward Funding Goal" /></div>)}
@@ -982,7 +1049,7 @@ const CreatorDashboard = ({ /* ... */ }) => {
                 )}
                 <div>
                     <h4 className="text-md font-semibold truncate" style={{color: C3_TEXT_PRIMARY_LIGHT}}>{page.tokenName}</h4>
-                    <p className="text-xs" style={{color: C3_TEXT_SECONDARY_LIGHT}}>${page.raised.toLocaleString()} raised from {page.supporters} supporters.</p>
+                    <p className="text-xs" style={{color: C3_TEXT_SECONDARY_LIGHT}}>$${page.raised.toLocaleString()} raised from {page.supporters} supporters.</p>
                     <div className="mt-1 w-32"> 
                          <ProgressBar current={Math.min(page.supporters, 100)} total={100} small={true} />
                     </div>
@@ -1004,7 +1071,7 @@ const CreatorDashboard = ({ /* ... */ }) => {
             <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Discover funding opportunities tailored for you.</p>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateTo('BudgetingScreen', pageToDisplayDetails ? pageToDisplayDetails.id : (creatorSupportPages.length > 0 ? creatorSupportPages[0].id : null) )}>
-            <div className="flex items-center mb-1.5"><DollarSign size={16} className={`mr-2`} style={{ color: C3_ACCENT_COLOR }} /><h3 className={`text-lg font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Budgeting & Financials</h3></div>
+            <div className="flex items-center mb-1.5"><DollarSign size={16} className={`mr-2`} style={{ color: C3_ACCENT_COLOR }} /><h3 className={`text-lg font-semibold`} style={{ color: C3_TEXT_PRIMARY_LIGHT }}>Budget & Financials</h3></div>
             <p className={`text-sm`} style={{ color: C3_TEXT_SECONDARY_LIGHT }}>Manage your funds and plan your creative projects.</p>
         </Card>
       </div>
@@ -1079,7 +1146,7 @@ const AIGrantScoutScreen = ({ /* ... */ }) => {
         }
       }
     };
-    const apiKey = process.env.REACT_APP_GOOGLE_AI_API_KEY; 
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     try {
@@ -1215,7 +1282,7 @@ const BudgetingScreen = ({ /* ... */ }) => {
         }
       }
     };
-    const apiKey = process.env.REACT_APP_GOOGLE_AI_API_KEY; 
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     try {
@@ -1291,7 +1358,7 @@ const BudgetingScreen = ({ /* ... */ }) => {
         }
       }
     };
-    const apiKey = process.env.REACT_APP_GOOGLE_AI_API_KEY; 
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     try {
       const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -1355,21 +1422,21 @@ const BudgetingScreen = ({ /* ... */ }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6"> 
               <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_ACCENT_COLOR}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
                 <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Total Raised</p>
-                <p className="text-lg font-semibold" style={{color: C3_ACCENT_COLOR}}>${totalRaised.toLocaleString()}</p>
+                <p className="text-lg font-semibold" style={{color: C3_ACCENT_COLOR}}>$${totalRaised.toLocaleString()}</p>
               </div>
               <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_ERROR_RED}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
                 <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Planned Expenses</p>
-                <p className="text-lg font-semibold" style={{color: C3_ERROR_RED}}>${totalPlannedExpenses.toLocaleString()}</p>
+                <p className="text-lg font-semibold" style={{color: C3_ERROR_RED}}>$${totalPlannedExpenses.toLocaleString()}</p>
               </div>
               {fundingGoal !== null && (
                 <div className={`p-3 rounded-md border ${remainingOrSurplusVsGoal >= 0 ? `bg-[${C3_SUCCESS_GREEN}${C3_ACCENT_BACKGROUND_ALPHA}]` : `bg-[${C3_ERROR_RED}${C3_ACCENT_BACKGROUND_ALPHA}]`}`} style={{borderColor: C3_BORDER_LIGHT}}> 
                     <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Remaining/Surplus vs Goal ({`Goal: $${fundingGoal.toLocaleString()}`})</p>
-                    <p className={`text-lg font-semibold ${remainingOrSurplusVsGoal >= 0 ? `text-[${C3_SUCCESS_GREEN}]` : `text-[${C3_ERROR_RED}]`}`}>${remainingOrSurplusVsGoal.toLocaleString()}</p>
+                    <p className={`text-lg font-semibold ${remainingOrSurplusVsGoal >= 0 ? `text-[${C3_SUCCESS_GREEN}]` : `text-[${C3_ERROR_RED}]`}`}>$${remainingOrSurplusVsGoal.toLocaleString()}</p>
                 </div>
               )}
                <div className="p-3 rounded-md border" style={{backgroundColor: `${C3_SUCCESS_GREEN}${C3_ACCENT_BACKGROUND_ALPHA}`, borderColor: C3_BORDER_LIGHT}}> 
                     <p className="text-xs font-medium" style={{color: C3_TEXT_SECONDARY_LIGHT}}>Funds Available (Raised - Planned)</p>
-                    <p className="text-lg font-semibold" style={{color: C3_SUCCESS_GREEN}}>${remainingBudgetAfterRaised.toLocaleString()}</p>
+                    <p className="text-lg font-semibold" style={{color: C3_SUCCESS_GREEN}}>$${remainingBudgetAfterRaised.toLocaleString()}</p>
                 </div>
             </div>
 
@@ -1413,7 +1480,7 @@ const BudgetingScreen = ({ /* ... */ }) => {
                 <div className="flex-1 min-w-0 mr-2"> 
                     <p style={{color: C3_TEXT_PRIMARY_LIGHT}} className="truncate font-medium">{item.description}</p> 
                     {item.aiEstimateNotes && <p className="text-xs italic" style={{color: C3_TEXT_SECONDARY_LIGHT}}>{item.aiEstimateNotes}</p>} 
-                    <p className="text-sm font-semibold" style={{color: C3_ACCENT_COLOR}}>${parseFloat(item.amount || 0).toLocaleString()}</p>
+                    <p className="text-sm font-semibold" style={{color: C3_ACCENT_COLOR}}>$${parseFloat(item.amount || 0).toLocaleString()}</p>
                 </div>
                 <div className="flex-shrink-0 flex items-center space-x-1"> 
                     <Button onClick={() => handleEditBudgetItem(item)} small icon={Edit} className="p-1.5 hover:bg-gray-100"/> 
@@ -1432,9 +1499,26 @@ const BudgetingScreen = ({ /* ... */ }) => {
 
 // Main App Component
 function App() {
-  const { screen } = useContext(AppContext);
+  const { screen, hasCompletedOnboarding } = useContext(AppContext); 
+  const { navigateTo } = useContext(AppContext); 
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding) {
+      navigateTo('Onboarding');
+    } else if (screen === '') { 
+      navigateTo('DiscoveryScreen');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCompletedOnboarding]); 
+
+
   const renderScreen = () => {
+    if (!hasCompletedOnboarding && screen !== 'Onboarding') { 
+        return <OnboardingScreen />;
+    }
+
     switch (screen) {
+      case 'Onboarding': return <OnboardingScreen />; 
       case 'CreatorSetup': return <CreatorSetupScreen />;
       case 'PublicTokenPage': return <PublicTokenPage />;
       case 'SupportVerificationFlow': return <SupportVerificationFlow />;
@@ -1443,15 +1527,25 @@ function App() {
       case 'DiscoveryScreen': return <DiscoveryScreen />;
       case 'AIGrantScout': return <AIGrantScoutScreen />;
       case 'BudgetingScreen': return <BudgetingScreen />;
-      default: return <CreatorSetupScreen />;
+      default: 
+        return hasCompletedOnboarding ? <DiscoveryScreen /> : <OnboardingScreen />; 
     }
   };
   return (
     <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
-      {/* <style jsx global>{`
-        body { background-color: ${C3_LIGHT_BG}; }
-      `}</style> */}
-      <Header />
+      <style jsx global>{`
+        body { font-family: 'Inter', sans-serif; background-color: ${C3_LIGHT_BG}; }
+        @keyframes slide-in-down { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        .animate-slide-in-down { animation: slide-in-down 0.5s ease-out forwards; }
+        .hero-gradient-text {
+          background: linear-gradient(to right, #22D3EE, #00A9E0, #3B82F6);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          text-fill-color: transparent;
+        }
+      `}</style>
+      {(hasCompletedOnboarding && screen !== 'Onboarding') && <Header />}
       <main className="container mx-auto px-2 py-4 md:px-4 md:py-8">{renderScreen()}</main>
       <ToastNotification />
     </div>
@@ -1461,3 +1555,4 @@ function App() {
 export default function ProvidedApp() {
   return ( <AppProvider><App /></AppProvider> );
 }
+```
