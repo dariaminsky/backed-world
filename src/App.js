@@ -1535,15 +1535,6 @@ function App() {
     <div className="min-h-screen font-inter" style={{ backgroundColor: C3_LIGHT_BG, color: C3_TEXT_PRIMARY_LIGHT }}>
       <style jsx global>{`
         body { font-family: 'Inter', sans-serif; background-color: ${C3_LIGHT_BG}; }
-        @keyframes slide-in-down { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-        .animate-slide-in-down { animation: slide-in-down 0.5s ease-out forwards; }
-        .hero-gradient-text {
-          background: linear-gradient(to right, #22D3EE, #00A9E0, #3B82F6);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          text-fill-color: transparent;
-        }
       `}</style>
       {(hasCompletedOnboarding && screen !== 'Onboarding') && <Header />}
       <main className="container mx-auto px-2 py-4 md:px-4 md:py-8">{renderScreen()}</main>
