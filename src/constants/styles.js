@@ -1,0 +1,12 @@
+export const C3_LIGHT_BG = "#F9FAFB";
+export const C3_CARD_BG_LIGHT = "#FFFFFF";
+export const C3_TEXT_PRIMARY_LIGHT = "#111827";
+export const C3_TEXT_SECONDARY_LIGHT = "#6B7280";
+export const C3_BORDER_LIGHT = "#E5E7EB";
+export const C3_LOGO_HIGHLIGHT = "#22D3EE";
+export const C3_LOGO_MID = "#00A9E0";
+export const C3_LOGO_BASE = "#3B82F6";
+export const C3_ACCENT_COLOR = C3_LOGO_MID;
+export const C3_ACCENT_BACKGROUND_ALPHA = "33";
+export const C3_ERROR_RED = "#EF4444";
+export const C3_SUCCESS_GREEN = "#10B981";
